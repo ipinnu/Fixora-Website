@@ -1,26 +1,76 @@
 @import "tailwindcss";
 
+/* ── CSS Design Tokens ────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-bg:           #0D0D0B;
+  --color-bg-2:         #131310;
+  --color-bg-3:         #1B1B17;
+  --color-border:       #2A2A25;
+  --color-border-light: #3A3A33;
+  --color-ochre:        #C8861A;
+  --color-ochre-light:  #E8A040;
+  --color-ochre-dim:    #7A4F0D;
+  --color-cream:        #F2EDDF;
+  --color-sand:         #A89A7A;
+  --color-muted:        #5A5A50;
+  --color-green:        #2ECC6A;
+  --color-green-dim:    #0F3D20;
+  --color-red:          #E84545;
 }
 
+/* ── Tailwind v4 Theme ────────────────────────────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg:           var(--color-bg);
+  --color-bg-2:         var(--color-bg-2);
+  --color-bg-3:         var(--color-bg-3);
+  --color-border-base:  var(--color-border);
+  --color-border-lt:    var(--color-border-light);
+  --color-ochre:        var(--color-ochre);
+  --color-ochre-lt:     var(--color-ochre-light);
+  --color-ochre-dim:    var(--color-ochre-dim);
+  --color-cream:        var(--color-cream);
+  --color-sand:         var(--color-sand);
+  --color-muted:        var(--color-muted);
+  --color-green:        var(--color-green);
+  --color-green-dim:    var(--color-green-dim);
+  --color-danger:       var(--color-red);
+
+  --font-serif: var(--font-instrument-serif), serif;
+  --font-sans:  var(--font-dm-sans), sans-serif;
+  --font-mono:  var(--font-jetbrains-mono), monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ── Hero Grid Animation ──────────────────────────────────────── */
+@keyframes cellPulse {
+  0%, 100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(200, 134, 26, 0.12);
   }
 }
 
+/* ── Base Styles ──────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-sand);
+  font-family: var(--font-dm-sans), "DM Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Focus ring ───────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-ochre);
+  outline-offset: 2px;
+}
+
+/* ── Selection ────────────────────────────────────────────────── */
+::selection {
+  background-color: var(--color-ochre-dim);
+  color: var(--color-cream);
 }
