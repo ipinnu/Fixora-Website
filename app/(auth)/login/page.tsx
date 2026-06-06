@@ -1,18 +1,41 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({ email: "", password: "" });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // auth logic goes here
+    setError("");
+    setLoading(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: form.email,
+      password: form.password,
+    });
+    setLoading(false);
+    if (error) { setError(error.message); return; }
+    const role = data.user?.user_metadata?.role;
+    router.push(role === "artisan" ? "/artisan" : "/customer");
+  };
+
+  const handleGoogle = async () => {
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
   };
 
   return (
@@ -117,7 +140,7 @@ export default function LoginPage() {
                   Password
                 </label>
                 <Link
-                  href="/forgot-password"
+                  href="/reset-password"
                   className="font-sans text-[12px] transition-colors"
                   style={{ color: "var(--color-muted)" }}
                   onMouseEnter={e => (e.currentTarget.style.color = "var(--color-ochre)")}
@@ -155,18 +178,25 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {error && (
+              <p className="font-sans text-[13px] rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(232,69,69,0.08)", color: "#E84545", border: "1px solid rgba(232,69,69,0.2)" }}>
+                {error}
+              </p>
+            )}
+
             {/* Submit */}
             <motion.button
               type="submit"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              disabled={loading}
+              whileHover={{ scale: loading ? 1 : 1.02 }}
+              whileTap={{ scale: loading ? 1 : 0.98 }}
               transition={{ type: "spring" as const, stiffness: 400, damping: 20 }}
               className="mt-2 h-12 w-full rounded-full font-sans text-[15px] font-semibold transition-colors duration-200"
-              style={{ backgroundColor: "var(--color-ochre)", color: "#0D0D0B" }}
-              onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--color-ochre-light)")}
+              style={{ backgroundColor: "var(--color-ochre)", color: "#0D0D0B", opacity: loading ? 0.7 : 1 }}
+              onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--color-ochre-light)"; }}
               onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--color-ochre)")}
             >
-              Log in
+              {loading ? "Logging in…" : "Log in"}
             </motion.button>
           </form>
 
@@ -179,6 +209,8 @@ export default function LoginPage() {
 
           {/* Google */}
           <motion.button
+            type="button"
+            onClick={handleGoogle}
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
             transition={{ type: "spring" as const, stiffness: 400, damping: 20 }}

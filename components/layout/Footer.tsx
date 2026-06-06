@@ -5,6 +5,14 @@ import Image from "next/image";
 
 const sections = [
   {
+    heading: "Marketplace",
+    links: [
+      { label: "Browse Jobs", href: "/jobs" },
+      { label: "Find Artisans", href: "/artisans" },
+      { label: "Post a Job", href: "/post-job" },
+    ],
+  },
+  {
     heading: "Platform",
     links: [
       { label: "Features", href: "/features" },
@@ -20,10 +28,10 @@ const sections = [
     ],
   },
   {
-    heading: "Get Started",
+    heading: "Legal",
     links: [
-      { label: "Post a Job", href: "/post-job" },
-      { label: "Browse Jobs", href: "/browse" },
+      { label: "Terms of Service", href: "/terms" },
+      { label: "Privacy Policy", href: "/privacy" },
     ],
   },
 ];

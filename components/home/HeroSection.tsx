@@ -152,8 +152,8 @@ export default function HeroSection() {
             custom={3}
             className="flex flex-col sm:flex-row items-start gap-3 mb-12"
           >
-            <OchreButton variant="filled" href="/signup">
-              Get Started Free
+            <OchreButton variant="filled" href="/post-job">
+              Post a Job Free
             </OchreButton>
             <OchreButton variant="ghost" href="/features">
               See Features

@@ -1,16 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, Briefcase, Wrench } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 type Role = "customer" | "artisan";
 
 export default function SignupPage() {
+  const router = useRouter();
   const [role, setRole] = useState<Role>("customer");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -22,9 +27,35 @@ export default function SignupPage() {
   const states = ["Lagos", "Abuja", "Rivers", "Kano", "Oyo", "Delta", "Anambra", "Kaduna", "Enugu", "Imo"];
   const trades = ["Plumbing", "Electrical", "Tailoring", "Carpentry", "Painting", "AC Repair", "Catering", "Events", "Makeup", "Cleaning"];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // auth logic goes here
+    setError("");
+    setLoading(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.signUp({
+      email: form.email,
+      password: form.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: { full_name: form.fullName, role, trade: form.trade, state: form.state },
+      },
+    });
+    setLoading(false);
+    if (error) { setError(error.message); return; }
+    // If email confirmation is off, Supabase returns a session immediately
+    if (data.session) {
+      router.push(role === "artisan" ? "/artisan" : "/customer");
+    } else {
+      router.push(`/verify?email=${encodeURIComponent(form.email)}&role=${role}`);
+    }
+  };
+
+  const handleGoogle = async () => {
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
   };
 
   return (
@@ -265,18 +296,25 @@ export default function SignupPage() {
               <Link href="/privacy" style={{ color: "var(--color-ochre)" }}>Privacy Policy</Link>.
             </p>
 
+            {error && (
+              <p className="font-sans text-[13px] rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(232,69,69,0.08)", color: "#E84545", border: "1px solid rgba(232,69,69,0.2)" }}>
+                {error}
+              </p>
+            )}
+
             {/* Submit */}
             <motion.button
               type="submit"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              disabled={loading}
+              whileHover={{ scale: loading ? 1 : 1.02 }}
+              whileTap={{ scale: loading ? 1 : 0.98 }}
               transition={{ type: "spring" as const, stiffness: 400, damping: 20 }}
               className="h-12 w-full rounded-full font-sans text-[15px] font-semibold transition-colors duration-200"
-              style={{ backgroundColor: "var(--color-ochre)", color: "#0D0D0B" }}
-              onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--color-ochre-light)")}
+              style={{ backgroundColor: "var(--color-ochre)", color: "#0D0D0B", opacity: loading ? 0.7 : 1 }}
+              onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--color-ochre-light)"; }}
               onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--color-ochre)")}
             >
-              Create {role === "artisan" ? "artisan" : ""} account
+              {loading ? "Creating account…" : `Create ${role === "artisan" ? "artisan " : ""}account`}
             </motion.button>
           </form>
 
@@ -288,6 +326,8 @@ export default function SignupPage() {
           </div>
 
           <motion.button
+            type="button"
+            onClick={handleGoogle}
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
             transition={{ type: "spring" as const, stiffness: 400, damping: 20 }}

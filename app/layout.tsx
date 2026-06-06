@@ -25,9 +25,25 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FIXORA — Nigeria's Smart Artisan Marketplace",
-  description:
-    "Post a job, compare bids from verified artisans, and pay securely through escrow. Built for Nigeria.",
+  title: { default: "FIXORA — Nigeria's Smart Artisan Marketplace", template: "%s — FIXORA" },
+  description: "Post a job, compare bids from verified artisans, and pay securely through escrow. Built for Nigeria.",
+  keywords: ["artisan marketplace Nigeria", "hire plumber Lagos", "find electrician Nigeria", "home repair Nigeria", "verified artisans"],
+  authors: [{ name: "FIXORA" }],
+  creator: "FIXORA",
+  openGraph: {
+    type: "website",
+    locale: "en_NG",
+    url: "https://fixora.ng",
+    siteName: "FIXORA",
+    title: "FIXORA — Nigeria's Smart Artisan Marketplace",
+    description: "Post a job, compare bids from verified artisans, and pay securely through escrow. Built for Nigeria.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FIXORA — Nigeria's Smart Artisan Marketplace",
+    description: "Post a job, compare bids from verified artisans, and pay securely through escrow.",
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({
