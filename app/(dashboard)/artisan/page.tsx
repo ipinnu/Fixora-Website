@@ -42,7 +42,7 @@ const TRANSACTIONS = [
   { id: "t5", job: "Tile kitchen floor", amount: "+₦45,000", date: "May 15, 2026", status: "paid" },
 ];
 
-const CATEGORIES_FILTER = ["All", "Plumbing", "Electrical", "Painting", "AC & HVAC", "Carpentry", "Cleaning", "Auto Repair", "Construction"];
+const CATEGORIES_FILTER = ["All", "Plumbing", "Electrical", "Painting", "AC & HVAC", "Carpentry", "Cleaning", "Auto Repair", "Construction", "Hair Making", "Crocheting", "Photography", "Beauty & Makeup", "Events", "Tailoring", "Catering", "General Repair", "Others"];
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
   accepted: { label: "Accepted", color: "#2ECC6A", bg: "rgba(46,204,106,0.08)" },

@@ -17,6 +17,8 @@ const TRADES = [
   "Plumbing","Electrical","Painting","Carpentry","AC & HVAC","Tiling & Flooring",
   "Cleaning","Auto Repair","Welding","Masonry","Roofing","Interior Design",
   "Landscaping","Security Systems","Solar & Renewable","General Repairs",
+  "Hair Making","Crocheting","Photography","Beauty & Makeup","Events","Catering",
+  "Tailoring","Others",
 ];
 
 interface ProfileData {

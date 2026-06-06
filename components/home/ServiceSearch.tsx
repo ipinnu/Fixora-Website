@@ -11,7 +11,7 @@ const states = [
   "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto",
   "Taraba", "Yobe", "Zamfara",
 ];
-const categories = ["Plumbing", "Electrical", "Tailoring", "Makeup", "Events", "Catering", "Carpentry", "Painting", "AC Repair", "Cleaning"];
+const categories = ["Plumbing", "Electrical", "Tailoring", "Hair Making", "Crocheting", "Photography", "Beauty & Makeup", "Events", "Catering", "Carpentry", "Painting", "AC Repair", "Cleaning", "Auto Repair", "Construction", "Appliances", "General Repair", "Others"];
 
 export default function ServiceSearch() {
   const [state, setState] = useState("");

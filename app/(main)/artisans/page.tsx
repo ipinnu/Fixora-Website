@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 
-const TRADES = ["All trades", "Plumbing", "Electrical", "Painting", "Carpentry", "AC Repair", "Cleaning", "Tailoring", "Catering", "Auto Repair"];
+const TRADES = ["All trades", "Plumbing", "Electrical", "Painting", "Carpentry", "AC Repair", "Cleaning", "Tailoring", "Catering", "Auto Repair", "Hair Making", "Crocheting", "Photography", "Beauty & Makeup", "Events", "Construction", "General Repair", "Others"];
 const STATES = ["All states", "Lagos", "Abuja", "Rivers", "Kano", "Oyo", "Delta", "Anambra", "Kaduna", "Enugu", "Imo"];
 
 interface Artisan { id: string; full_name: string | null; trade: string | null; state: string | null; created_at: string; }

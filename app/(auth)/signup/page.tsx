@@ -25,7 +25,7 @@ export default function SignupPage() {
   });
 
   const states = ["Lagos", "Abuja", "Rivers", "Kano", "Oyo", "Delta", "Anambra", "Kaduna", "Enugu", "Imo"];
-  const trades = ["Plumbing", "Electrical", "Tailoring", "Carpentry", "Painting", "AC Repair", "Catering", "Events", "Makeup", "Cleaning"];
+  const trades = ["Plumbing", "Electrical", "Tailoring", "Carpentry", "Painting", "AC Repair", "Catering", "Events", "Beauty & Makeup", "Cleaning", "Hair Making", "Crocheting", "Photography", "Auto Repair", "Construction", "General Repair", "Others"];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

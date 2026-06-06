@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 
-const CATEGORIES = ["All", "Plumbing", "Electrical", "Painting", "AC & HVAC", "Carpentry", "Auto Repair", "Cleaning", "Appliances", "Tailoring", "Catering", "Construction", "General Repair"];
+const CATEGORIES = ["All", "Plumbing", "Electrical", "Painting", "AC & HVAC", "Carpentry", "Auto Repair", "Cleaning", "Appliances", "Tailoring", "Catering", "Construction", "Hair Making", "Crocheting", "Photography", "Beauty & Makeup", "Events", "General Repair", "Others"];
 const STATES = ["All states", "Lagos", "Abuja", "Rivers", "Kano", "Oyo", "Delta", "Anambra", "Kaduna", "Enugu", "Imo"];
 
 interface Job {
