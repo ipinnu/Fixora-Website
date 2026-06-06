@@ -32,25 +32,30 @@ export default function Navbar() {
     const supabase = createClient();
 
     const loadUser = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) { setUser(null); setAuthLoading(false); return; }
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) { setUser(null); setAuthLoading(false); return; }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, role")
-        .eq("id", authUser.id)
-        .single();
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, role")
+          .eq("id", authUser.id)
+          .single();
 
-      const name = profile?.full_name ?? authUser.email ?? "User";
-      const initials = name
-        .split(" ")
-        .map((w: string) => w[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
+        const name = profile?.full_name ?? authUser.email ?? "User";
+        const initials = name
+          .split(" ")
+          .map((w: string) => w[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase();
 
-      setUser({ initials, name: name.split(" ")[0], role: profile?.role ?? "customer" });
-      setAuthLoading(false);
+        setUser({ initials, name: name.split(" ")[0], role: profile?.role ?? "customer" });
+      } catch {
+        setUser(null);
+      } finally {
+        setAuthLoading(false);
+      }
     };
 
     loadUser();
