@@ -25,6 +25,7 @@ const sections = [
     links: [
       { label: "About", href: "/about" },
       { label: "Become an Artisan", href: "/signup" },
+      { label: "Contact Us", href: "mailto:Fixoraglobalhub@gmail.com" },
     ],
   },
   {
@@ -135,9 +136,15 @@ export default function Footer() {
           <p className="font-sans text-[13px]" style={{ color: "var(--color-muted)" }}>
             © 2026 FIXORA. All rights reserved.
           </p>
-          <p className="font-sans text-[13px]" style={{ color: "var(--color-muted)" }}>
-            Made in Lagos 🇳🇬
-          </p>
+          <a
+            href="mailto:Fixoraglobalhub@gmail.com"
+            className="font-sans text-[13px] transition-colors duration-200"
+            style={{ color: "var(--color-muted)" }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--color-ochre)")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--color-muted)")}
+          >
+            Fixoraglobalhub@gmail.com
+          </a>
         </div>
       </div>
     </footer>

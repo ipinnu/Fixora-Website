@@ -6,10 +6,11 @@ function getResend() {
   return _resend;
 }
 const FROM = "FIXORA <noreply@fixora.ng>";
+const REPLY_TO = "Fixoraglobalhub@gmail.com";
 
 export async function sendBidReceived(to: string, customerName: string, artisanName: string, jobTitle: string, amount: number, jobId: string) {
   return getResend().emails.send({
-    from: FROM, to,
+    from: FROM, reply_to: REPLY_TO, to,
     subject: `New bid on "${jobTitle}"`,
     html: emailTemplate({
       headline: `${artisanName} submitted a bid`,
@@ -21,7 +22,7 @@ export async function sendBidReceived(to: string, customerName: string, artisanN
 
 export async function sendBidAccepted(to: string, artisanName: string, jobTitle: string, amount: number) {
   return getResend().emails.send({
-    from: FROM, to,
+    from: FROM, reply_to: REPLY_TO, to,
     subject: `Your bid was accepted — ${jobTitle}`,
     html: emailTemplate({
       headline: "Your bid was accepted! 🎉",
@@ -33,7 +34,7 @@ export async function sendBidAccepted(to: string, artisanName: string, jobTitle:
 
 export async function sendJobCompleted(to: string, customerName: string, jobTitle: string, artisanId: string, artisanName: string, jobId: string) {
   return getResend().emails.send({
-    from: FROM, to,
+    from: FROM, reply_to: REPLY_TO, to,
     subject: `Job complete — leave a review for ${artisanName}`,
     html: emailTemplate({
       headline: `${jobTitle} is marked complete`,
@@ -45,7 +46,7 @@ export async function sendJobCompleted(to: string, customerName: string, jobTitl
 
 export async function sendPaymentReleased(to: string, artisanName: string, amount: number, jobTitle: string) {
   return getResend().emails.send({
-    from: FROM, to,
+    from: FROM, reply_to: REPLY_TO, to,
     subject: `₦${amount.toLocaleString()} released to your account`,
     html: emailTemplate({
       headline: "Payment released! 💰",
