@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 
 const TRADES = ["All trades", "Plumbing", "Electrical", "Painting", "Carpentry", "AC Repair", "Cleaning", "Tailoring", "Catering", "Auto Repair", "Hair Making", "Crocheting", "Photography", "Beauty & Makeup", "Events", "Construction", "General Repair", "Others"];
-const STATES = ["All states", "Lagos", "Abuja", "Rivers", "Kano", "Oyo", "Delta", "Anambra", "Kaduna", "Enugu", "Imo"];
+const STATES = ["All states","Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno","Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","FCT","Gombe","Imo","Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos","Nasarawa","Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto","Taraba","Yobe","Zamfara"];
 
 interface Artisan { id: string; full_name: string | null; trade: string | null; state: string | null; created_at: string; }
 
