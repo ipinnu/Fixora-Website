@@ -19,6 +19,7 @@ import {
   adminReviewProofAndRelease,
   type TransactionWithCompletion,
 } from "@/lib/supabase/completions";
+import DemoToggle from "@/components/dashboard/DemoToggle";
 
 const ADMIN_EMAIL = "ipinnu.oladipo23@gmail.com";
 
@@ -47,9 +48,11 @@ export default function AdminPage() {
   const [verifications, setVerifications] = useState<ArtisanVerificationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
+  const [isDemoSession, setIsDemoSession] = useState(false);
 
   useEffect(() => {
     if (getDemoSession() === "admin") {
+      setIsDemoSession(true);
       setDemoMode(true);
       setLoading(false);
       return;
@@ -125,12 +128,8 @@ export default function AdminPage() {
           <span className="font-sans text-[11px] rounded-full px-2.5 py-1 font-semibold" style={{ backgroundColor: "rgba(232,69,69,0.1)", color: "#E84545", border: "1px solid rgba(232,69,69,0.2)" }}>Admin</span>
         </div>
         <div className="flex items-center gap-3">
-          {demoMode && (
-            <span className="font-sans text-[11px] rounded-full px-2.5 py-1 font-semibold" style={{ backgroundColor: "rgba(200,134,26,0.12)", color: "var(--color-ochre)", border: "1px solid rgba(200,134,26,0.25)" }}>
-              Demo data
-            </span>
-          )}
-          {demoMode && (
+          <DemoToggle demo={demoMode} onToggle={() => setDemoMode((d) => !d)} />
+          {isDemoSession && (
             <Link
               href="/login"
               onClick={() => clearDemoSession()}
@@ -150,13 +149,29 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {demoMode && (
-        <div className="flex items-center justify-between px-6 lg:px-10 py-2.5 text-[12px] font-sans" style={{ backgroundColor: "rgba(200,134,26,0.07)", borderBottom: "1px solid rgba(200,134,26,0.12)" }}>
-          <span style={{ color: "var(--color-ochre)" }}>
-            ✦ Showing sample platform data for exploration — stats, users, jobs, transactions, and verifications are demo only
-          </span>
-        </div>
-      )}
+      <AnimatePresence>
+        {demoMode && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="flex items-center justify-between px-6 lg:px-10 py-2.5 text-[12px] font-sans"
+            style={{ backgroundColor: "rgba(200,134,26,0.07)", borderBottom: "1px solid rgba(200,134,26,0.12)" }}
+          >
+            <span style={{ color: "var(--color-ochre)" }}>
+              ✦ Showing sample platform data — toggle <strong>Live</strong> to see real users, jobs, transactions, and verifications
+            </span>
+            <button
+              type="button"
+              onClick={() => setDemoMode(false)}
+              className="font-semibold underline underline-offset-2"
+              style={{ color: "var(--color-ochre)" }}
+            >
+              Switch to Live
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="px-6 lg:px-10 py-8">
         {/* Stats */}
