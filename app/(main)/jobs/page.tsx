@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+import { getFilterGroupOptions, matchesCategoryFilter } from "@/lib/categories";
 
-const CATEGORIES = ["All", "Plumbing", "Electrical", "Painting", "AC & HVAC", "Carpentry", "Auto Repair", "Cleaning", "Appliances", "Tailoring", "Catering", "Construction", "Hair Making", "Crocheting", "Photography", "Beauty & Makeup", "Events", "General Repair", "Others"];
+const CATEGORIES = getFilterGroupOptions();
 const STATES = ["All states", "Lagos", "Abuja", "Rivers", "Kano", "Oyo", "Delta", "Anambra", "Kaduna", "Enugu", "Imo"];
 
 interface Job {
@@ -33,10 +34,11 @@ export default function BrowseJobsPage() {
     setLoading(true);
     const supabase = createClient();
     let q = supabase.from("jobs").select("id, title, category, state, lga, budget_amount, status, created_at, photos:job_photos(url), bid_count:bids(count)").eq("status", "open").order("created_at", { ascending: false });
-    if (cat !== "All") q = q.eq("category", cat);
+    // Group filters are applied client-side to support legacy category labels
     if (state !== "All states") q = q.eq("state", state);
     const { data } = await q;
-    setJobs((data ?? []).map((j: Record<string, unknown>) => ({ ...j, bid_count: (j.bid_count as Array<{ count: number }>)?.[0]?.count ?? 0 })) as Job[]);
+    const mapped = (data ?? []).map((j: Record<string, unknown>) => ({ ...j, bid_count: (j.bid_count as Array<{ count: number }>)?.[0]?.count ?? 0 })) as Job[];
+    setJobs(cat === "All" ? mapped : mapped.filter((j) => matchesCategoryFilter(j.category, cat)));
     setLoading(false);
   }, [cat, state]);
 
@@ -63,7 +65,7 @@ export default function BrowseJobsPage() {
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-8">
           <div className="flex gap-2 flex-wrap flex-1">
-            {CATEGORIES.slice(0, 7).map(c => (
+            {CATEGORIES.map(c => (
               <button key={c} onClick={() => setCat(c)}
                 className="h-8 px-4 rounded-full font-sans text-[12px] font-medium transition-all cursor-pointer"
                 style={{ backgroundColor: cat === c ? "rgba(200,134,26,0.12)" : "#111110", border: `1px solid ${cat === c ? "rgba(200,134,26,0.4)" : "#2A2A25"}`, color: cat === c ? "var(--color-ochre)" : "#5A5A50" }}>

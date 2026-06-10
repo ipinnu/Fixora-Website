@@ -10,6 +10,7 @@ import NotificationBell from "@/components/dashboard/NotificationBell";
 import DemoToggle from "@/components/dashboard/DemoToggle";
 import MobileNav from "@/components/dashboard/MobileNav";
 import VerificationFlow from "@/components/dashboard/VerificationFlow";
+import { getFilterGroupOptions, matchesCategoryFilter } from "@/lib/categories";
 
 const AVAILABLE_JOBS = [
   { id: "1", title: "Fix leaking kitchen pipe", category: "Plumbing", location: "Lagos Island, Lagos", budgetType: "fixed", budget: "₦15,000", photos: 2, posted: "2h ago", bids: 3, urgent: false },
@@ -42,7 +43,7 @@ const TRANSACTIONS = [
   { id: "t5", job: "Tile kitchen floor", amount: "+₦45,000", date: "May 15, 2026", status: "paid" },
 ];
 
-const CATEGORIES_FILTER = ["All", "Plumbing", "Electrical", "Painting", "AC & HVAC", "Carpentry", "Cleaning", "Auto Repair", "Construction", "Hair Making", "Crocheting", "Photography", "Beauty & Makeup", "Events", "Tailoring", "Catering", "General Repair", "Others"];
+const CATEGORIES_FILTER = getFilterGroupOptions();
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
   accepted: { label: "Accepted", color: "#2ECC6A", bg: "rgba(46,204,106,0.08)" },
@@ -163,7 +164,7 @@ export default function ArtisanDashboard() {
   const [bidInputs, setBidInputs] = useState<Record<string, string>>({});
   const [showBidModal, setShowBidModal] = useState<string | null>(null);
 
-  const visibleJobs = catFilter === "All" ? displayJobs : displayJobs.filter(j => j.category === catFilter);
+  const visibleJobs = catFilter === "All" ? displayJobs : displayJobs.filter(j => matchesCategoryFilter(j.category, catFilter));
 
   const [verificationStatus, setVerificationStatus] = useState<"unverified" | "pending" | "verified">("unverified");
   const [showVerification, setShowVerification] = useState(false);

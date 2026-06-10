@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import CategorySelect from "@/components/CategorySelect";
 
 type Step = "intro" | "nin" | "face" | "profile" | "done";
 
@@ -11,14 +12,6 @@ const NIGERIAN_STATES = [
   "Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos","Nasarawa",
   "Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto","Taraba",
   "Yobe","Zamfara",
-];
-
-const TRADES = [
-  "Plumbing","Electrical","Painting","Carpentry","AC & HVAC","Tiling & Flooring",
-  "Cleaning","Auto Repair","Welding","Masonry","Roofing","Interior Design",
-  "Landscaping","Security Systems","Solar & Renewable","General Repairs",
-  "Hair Making","Crocheting","Photography","Beauty & Makeup","Events","Catering",
-  "Tailoring","Others",
 ];
 
 interface ProfileData {
@@ -344,15 +337,13 @@ export default function VerificationFlow({ onComplete, onClose }: Props) {
 
                 {/* Trade */}
                 <Field label="Your Primary Trade">
-                  <select
+                  <CategorySelect
                     value={profile.trade}
-                    onChange={e => setProfile(p => ({ ...p, trade: e.target.value }))}
+                    onChange={(trade) => setProfile(p => ({ ...p, trade }))}
+                    placeholder="Select your trade"
                     className="w-full h-11 rounded-xl px-4 font-sans text-[14px] outline-none appearance-none cursor-pointer"
                     style={{ backgroundColor: "#0D0D0B", border: "1px solid #2A2A25", color: profile.trade ? "var(--color-cream)" : "#5A5A50" }}
-                  >
-                    <option value="" disabled>Select your trade</option>
-                    {TRADES.map(t => <option key={t} value={t} style={{ color: "#fff", backgroundColor: "#141412" }}>{t}</option>)}
-                  </select>
+                  />
                 </Field>
 
                 {/* Years */}

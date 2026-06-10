@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
-
-const TRADES = ["All trades", "Plumbing", "Electrical", "Painting", "Carpentry", "AC Repair", "Cleaning", "Tailoring", "Catering", "Auto Repair", "Hair Making", "Crocheting", "Photography", "Beauty & Makeup", "Events", "Construction", "General Repair", "Others"];
+import { getLabelsForGroupFilter } from "@/lib/categories";
+import CategoryGroupSelect from "@/components/CategoryGroupSelect";
 const STATES = ["All states","Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno","Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","FCT","Gombe","Imo","Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos","Nasarawa","Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto","Taraba","Yobe","Zamfara"];
 
 interface Artisan { id: string; full_name: string | null; trade: string | null; state: string | null; created_at: string; }
@@ -33,7 +33,8 @@ export default function BrowseArtisansPage() {
     setLoading(true);
     const supabase = createClient();
     let q = supabase.from("profiles").select("id, full_name, trade, state, created_at").eq("role", "artisan").order("created_at", { ascending: false });
-    if (trade !== "All trades") q = q.eq("trade", trade);
+    const tradeLabels = getLabelsForGroupFilter(trade, "All trades");
+    if (tradeLabels) q = q.in("trade", tradeLabels);
     if (state !== "All states") q = q.eq("state", state);
     const { data } = await q;
     setArtisans((data ?? []) as Artisan[]);
@@ -68,11 +69,13 @@ export default function BrowseArtisansPage() {
               onFocus={e => (e.currentTarget.style.borderColor = "rgba(200,134,26,0.4)")}
               onBlur={e => (e.currentTarget.style.borderColor = "#2A2A25")} />
           </div>
-          <select value={trade} onChange={e => setTrade(e.target.value)}
+          <CategoryGroupSelect
+            value={trade === "All trades" ? "" : trade}
+            onChange={(v) => setTrade(v || "All trades")}
+            allLabel="All trades"
             className="h-10 rounded-xl px-3 font-sans text-[13px] outline-none appearance-none cursor-pointer"
-            style={{ backgroundColor: "#111110", border: "1px solid #2A2A25", color: "var(--color-cream)", minWidth: "140px" }}>
-            {TRADES.map(t => <option key={t}>{t}</option>)}
-          </select>
+            style={{ backgroundColor: "#111110", border: "1px solid #2A2A25", color: "var(--color-cream)", minWidth: "180px" }}
+          />
           <select value={state} onChange={e => setState(e.target.value)}
             className="h-10 rounded-xl px-3 font-sans text-[13px] outline-none appearance-none cursor-pointer"
             style={{ backgroundColor: "#111110", border: "1px solid #2A2A25", color: "var(--color-cream)", minWidth: "140px" }}>

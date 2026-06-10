@@ -7,6 +7,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, Briefcase, Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import CategorySelect from "@/components/CategorySelect";
 
 type Role = "customer" | "artisan";
 
@@ -25,7 +26,6 @@ export default function SignupPage() {
   });
 
   const states = ["Lagos", "Abuja", "Rivers", "Kano", "Oyo", "Delta", "Anambra", "Kaduna", "Enugu", "Imo"];
-  const trades = ["Plumbing", "Electrical", "Tailoring", "Carpentry", "Painting", "AC Repair", "Catering", "Events", "Beauty & Makeup", "Cleaning", "Hair Making", "Crocheting", "Photography", "Auto Repair", "Construction", "General Repair", "Others"];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -222,18 +222,16 @@ export default function SignupPage() {
                       <label className="font-sans text-[13px] font-medium" style={{ color: "var(--color-sand)" }}>
                         Trade / Skill
                       </label>
-                      <select
+                      <CategorySelect
                         required={role === "artisan"}
                         value={form.trade}
-                        onChange={e => setForm(f => ({ ...f, trade: e.target.value }))}
+                        onChange={(trade) => setForm(f => ({ ...f, trade }))}
+                        placeholder="Select trade"
                         className="h-12 rounded-xl border px-4 font-sans text-[15px] outline-none transition-colors duration-200 w-full appearance-none cursor-pointer"
                         style={{ backgroundColor: "var(--color-bg-3)", borderColor: "var(--color-border)", color: form.trade ? "var(--color-cream)" : "var(--color-muted)" }}
                         onFocus={e => (e.currentTarget.style.borderColor = "var(--color-ochre)")}
                         onBlur={e => (e.currentTarget.style.borderColor = "var(--color-border)")}
-                      >
-                        <option value="" disabled>Select trade</option>
-                        {trades.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
+                      />
                     </div>
                     <div className="flex-1 flex flex-col gap-1.5">
                       <label className="font-sans text-[13px] font-medium" style={{ color: "var(--color-sand)" }}>

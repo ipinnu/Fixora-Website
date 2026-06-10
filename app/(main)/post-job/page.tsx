@@ -6,27 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { submitJob } from "@/lib/supabase/jobs";
 import { createClient } from "@/lib/supabase/client";
-
-const CATEGORIES = [
-  { id: "plumbing", label: "Plumbing", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 12a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6z"/><path d="M14 14h3a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h1"/><path d="M6 12V8a4 4 0 0 1 4-4h4"/></svg> },
-  { id: "electrical", label: "Electrical", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> },
-  { id: "painting", label: "Painting", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 13.5V20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6.5"/><path d="M12 2v10"/><path d="M8 6l4-4 4 4"/><path d="M4 13h16"/></svg> },
-  { id: "ac_hvac", label: "AC & HVAC", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4"/><path d="M6 12H2"/><path d="M12 6V2"/><path d="M12 22v-4"/><circle cx="12" cy="12" r="4"/></svg> },
-  { id: "carpentry", label: "Carpentry", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> },
-  { id: "auto_repair", label: "Auto Repair", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> },
-  { id: "cleaning", label: "Cleaning", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v4H3z"/><path d="M5 7v13h14V7"/><path d="M9 11v5"/><path d="M15 11v5"/></svg> },
-  { id: "appliances", label: "Appliances", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg> },
-  { id: "tailoring", label: "Tailoring", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> },
-  { id: "catering", label: "Catering", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg> },
-  { id: "construction", label: "Construction", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 20h20"/><path d="M6 20V10l6-6 6 6v10"/><path d="M10 20v-6h4v6"/></svg> },
-  { id: "hair_making", label: "Hair Making", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3a6 6 0 0 0 6 6 6 6 0 0 0 6-6"/><path d="M8 9c0 4 2 7 4 9"/><path d="M16 9c0 4-2 7-4 9"/><path d="M12 3v3"/></svg> },
-  { id: "crocheting", label: "Crocheting", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3c0 0 2 2 2 5s-2 5-2 5"/><path d="M7 3c0 0 2 2 2 5s-2 5-2 5"/><path d="M11 3c0 0 2 2 2 5s-2 5-2 5"/><path d="M3 13h10"/><path d="M13 13l6 8"/><path d="M13 13l2-4"/></svg> },
-  { id: "photography", label: "Photography", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> },
-  { id: "beauty_makeup", label: "Beauty & Makeup", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="rgba(200,134,26,0.15)"/><circle cx="12" cy="12" r="2"/></svg> },
-  { id: "events", label: "Events", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
-  { id: "general", label: "General Repair", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M5.34 5.34l1.41 1.41M4.93 19.07l1.41-1.41M18.66 18.66l-1.41-1.41M22 12h-2M4 12H2M12 22v-2M12 4V2"/></svg> },
-  { id: "others", label: "Others", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg> },
-];
+import { getTradeLabel } from "@/lib/categories";
+import CategoryIconPicker from "@/components/CategoryIconPicker";
 
 const STATES = [
   "Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno",
@@ -185,7 +166,7 @@ export default function PostJobPage() {
     if (step < 3) { setStep(step + 1); return; }
     setSubmitting(true);
     setSubmitError("");
-    const categoryLabel = CATEGORIES.find(c => c.id === form.category)?.label ?? form.category;
+    const categoryLabel = getTradeLabel(form.category);
     const { error } = await submitJob({
       title:         form.title,
       category:      categoryLabel,
@@ -245,7 +226,7 @@ export default function PostJobPage() {
             className="font-sans text-[16px] mb-2"
             style={{ color: "#7A7A6A" }}
           >
-            {form.category && CATEGORIES.find(c => c.id === form.category)?.label} artisans near {form.state || "you"} are already reviewing your request.
+            {form.category && getTradeLabel(form.category)} artisans near {form.state || "you"} are already reviewing your request.
           </motion.p>
 
           <motion.div
@@ -431,24 +412,10 @@ export default function PostJobPage() {
                   <label className="block font-sans text-[12px] font-semibold uppercase tracking-wider mb-3" style={{ color: "#5A5A50" }}>
                     Category
                   </label>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                    {CATEGORIES.map(cat => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => set("category", cat.id)}
-                        className="flex flex-col items-center gap-1.5 rounded-xl py-3 px-2 transition-all duration-200 cursor-pointer"
-                        style={{
-                          backgroundColor: form.category === cat.id ? "rgba(200,134,26,0.12)" : "#0D0D0B",
-                          border: `1px solid ${form.category === cat.id ? "rgba(200,134,26,0.5)" : "#2A2A25"}`,
-                          color: form.category === cat.id ? "var(--color-ochre)" : "#5A5A50",
-                        }}
-                      >
-                        {cat.icon}
-                        <span className="font-sans text-[10px] font-medium text-center leading-tight">{cat.label}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <CategoryIconPicker
+                    value={form.category}
+                    onChange={(tradeId) => set("category", tradeId)}
+                  />
                 </div>
 
                 {/* State + LGA */}
@@ -710,7 +677,7 @@ export default function PostJobPage() {
                 <div className="flex flex-col gap-1.5">
                   {[
                     { label: "Task", value: form.title || "—" },
-                    { label: "Category", value: CATEGORIES.find(c => c.id === form.category)?.label || "—" },
+                    { label: "Category", value: form.category ? getTradeLabel(form.category) : "—" },
                     { label: "Location", value: [form.lga, form.state].filter(Boolean).join(", ") || "—" },
                     { label: "Photos", value: `${form.photoPreviews.length} attached` },
                     { label: "Budget", value: form.amount.trim() ? `₦${Number(form.amount).toLocaleString()}` : "Open to quotes" },

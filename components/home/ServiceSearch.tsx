@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import CategoryGroupSelect from "@/components/CategoryGroupSelect";
 
 const states = [
   "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno",
@@ -11,8 +12,6 @@ const states = [
   "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto",
   "Taraba", "Yobe", "Zamfara",
 ];
-const categories = ["Plumbing", "Electrical", "Tailoring", "Hair Making", "Crocheting", "Photography", "Beauty & Makeup", "Events", "Catering", "Carpentry", "Painting", "AC Repair", "Cleaning", "Auto Repair", "Construction", "Appliances", "General Repair", "Others"];
-
 export default function ServiceSearch() {
   const [state, setState] = useState("");
   const [category, setCategory] = useState("");
@@ -94,10 +93,12 @@ export default function ServiceSearch() {
                 {states.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
 
-              <select
+              <CategoryGroupSelect
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="h-12 w-full rounded-xl border px-4 font-sans text-[15px] outline-none transition-colors duration-200 appearance-none cursor-pointer"
+                onChange={setCategory}
+                variant="light"
+                placeholder="Select Category"
+                className="h-12 w-full rounded-xl border font-sans text-[15px] outline-none transition-colors duration-200 cursor-pointer"
                 style={{
                   backgroundColor: "#fafaf8",
                   borderColor: "rgba(13,13,11,0.12)",
@@ -105,10 +106,7 @@ export default function ServiceSearch() {
                 }}
                 onFocus={(e) => (e.currentTarget.style.borderColor = "var(--color-ochre)")}
                 onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(13,13,11,0.12)")}
-              >
-                <option value="" disabled>Select Category</option>
-                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              />
             </div>
 
             <button
