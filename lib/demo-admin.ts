@@ -27,8 +27,17 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString()
 /** Sample NIN slip scan (public OCR test fixture) + face crop from same document */
 const DEMO_ID_IMG = "/demo-nin-slip-full.jpg";
 const DEMO_FACE_IMG = "/demo-nin-face.jpg";
-const DEMO_PROOF_1 = "/Image%20client.jpg";
-const DEMO_PROOF_2 = "/Image%20client%202.jpg";
+
+// Per-trade proof-of-work photos (Unsplash CDN)
+const PROOF_ELECTRICAL_1 = "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&q=80"; // electrician at panel
+const PROOF_ELECTRICAL_2 = "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80";  // ceiling fan installed
+const PROOF_PAINTING_1   = "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=800&q=80";  // painter with roller
+const PROOF_PAINTING_2   = "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=800&q=80"; // freshly painted wall
+const PROOF_AC_1         = "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=800&q=80"; // AC unit on wall
+const PROOF_AC_2         = "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=800&q=80"; // HVAC tech working
+const PROOF_PLUMBING_1   = "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800&q=80"; // plumber under sink
+const PROOF_CLEANING_1   = "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&q=80"; // cleaning supplies
+const PROOF_CLEANING_2   = "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?w=800&q=80"; // clean room result
 
 export const DEMO_ADMIN_USERS: DemoAdminUser[] = [
   { id: "du1", full_name: "Adaeze Obi", role: "customer", state: "Lagos", trade: null, created_at: daysAgo(45) },
@@ -75,7 +84,7 @@ export const DEMO_ADMIN_TXNS: TransactionWithCompletion[] = [
       artisan_id: "du2",
       transaction_id: "dt1",
       notes: "Installed 3 ceiling fans in living room and bedrooms. All tested and balanced.",
-      photo_urls: [DEMO_PROOF_1, DEMO_PROOF_2],
+      photo_urls: [PROOF_ELECTRICAL_1, PROOF_ELECTRICAL_2],
       status: "approved",
       submitted_at: daysAgo(26),
       reviewed_at: daysAgo(25),
@@ -104,7 +113,7 @@ export const DEMO_ADMIN_TXNS: TransactionWithCompletion[] = [
       artisan_id: "du3",
       transaction_id: "dt2",
       notes: "Full interior repaint — walls, ceilings, and trim. Two coats applied.",
-      photo_urls: [DEMO_PROOF_2],
+      photo_urls: [PROOF_PAINTING_1, PROOF_PAINTING_2],
       status: "approved",
       submitted_at: daysAgo(41),
       reviewed_at: daysAgo(40),
@@ -133,7 +142,7 @@ export const DEMO_ADMIN_TXNS: TransactionWithCompletion[] = [
       artisan_id: "du7",
       transaction_id: "dt3",
       notes: "Split unit mounted, piped, and commissioned. Customer signed off on cooling test.",
-      photo_urls: [DEMO_PROOF_1, DEMO_PROOF_2],
+      photo_urls: [PROOF_AC_1, PROOF_AC_2],
       status: "submitted",
       submitted_at: daysAgo(0),
       reviewed_at: null,
@@ -162,7 +171,7 @@ export const DEMO_ADMIN_TXNS: TransactionWithCompletion[] = [
       artisan_id: "du10",
       transaction_id: "dt4",
       notes: "Replaced faulty joint under sink. No leaks after pressure test.",
-      photo_urls: [DEMO_PROOF_1],
+      photo_urls: [PROOF_PLUMBING_1],
       status: "approved",
       submitted_at: daysAgo(56),
       reviewed_at: daysAgo(55),
