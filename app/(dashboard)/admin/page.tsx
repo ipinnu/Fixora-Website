@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { getDemoSession } from "@/lib/demo-session";
 
 const ADMIN_EMAIL = "ipinnu.oladipo23@gmail.com";
 
@@ -37,6 +38,11 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (getDemoSession() === "admin") {
+      setLoading(false);
+      return;
+    }
+
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user || user.email !== ADMIN_EMAIL) { router.replace("/"); return; }

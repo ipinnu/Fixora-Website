@@ -4,10 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { acceptBid as acceptBidInDb, declineBid as declineBidInDb } from "@/lib/supabase/bids";
 import DemoToggle from "@/components/dashboard/DemoToggle";
 import MobileNav from "@/components/dashboard/MobileNav";
+import { DEMO_PROFILES, getDemoSession } from "@/lib/demo-session";
 
 const JOBS = [
   { id: "1", title: "Fix leaking kitchen pipe", category: "Plumbing", location: "Lagos Island", bids: 3, status: "reviewing", posted: "2h ago", budget: "₦15,000", photos: 2 },
@@ -17,9 +19,11 @@ const JOBS = [
   { id: "5", title: "Install ceiling fans x3", category: "Electrical", location: "Ibadan", bids: 5, status: "completed", posted: "1w ago", budget: "₦18,000", photos: 0 },
 ];
 
+const OFFER_COVER_IMAGES = ["/Image client.jpg", "/Image client 2.jpg"];
+
 const BIDS = [
-  { id: "b1", jobId: "2", jobTitle: "Paint 3-bedroom flat", artisan: "Emeka Okafor", rating: 4.9, reviews: 127, price: "₦85,000", message: "I can start on Monday. I use premium Dulux paints and my team of 2 will ensure a clean finish within 3 days.", submitted: "3h ago", initials: "EO", verified: true },
-  { id: "b2", jobId: "2", jobTitle: "Paint 3-bedroom flat", artisan: "Tunde Adeyemi", rating: 4.7, reviews: 89, price: "₦72,000", message: "15 years of professional painting experience. I'll do a full assessment before we begin and guarantee satisfaction.", submitted: "5h ago", initials: "TA", verified: true },
+  { id: "b1", jobId: "2", jobTitle: "Paint 3-bedroom flat", artisan: "Emeka Okafor", rating: 4.9, reviews: 127, price: "₦85,000", message: "I can start on Monday. I use premium Dulux paints and my team of 2 will ensure a clean finish within 3 days.", submitted: "3h ago", initials: "EO", verified: true, coverImage: OFFER_COVER_IMAGES[0] },
+  { id: "b2", jobId: "2", jobTitle: "Paint 3-bedroom flat", artisan: "Tunde Adeyemi", rating: 4.7, reviews: 89, price: "₦72,000", message: "15 years of professional painting experience. I'll do a full assessment before we begin and guarantee satisfaction.", submitted: "5h ago", initials: "TA", verified: true, coverImage: OFFER_COVER_IMAGES[1] },
   { id: "b3", jobId: "2", jobTitle: "Paint 3-bedroom flat", artisan: "Chijioke Eze", rating: 4.8, reviews: 203, price: "₦90,000", message: "Premium Berger materials included in quote. 100% satisfaction guaranteed with a 3-month touch-up warranty.", submitted: "6h ago", initials: "CE", verified: false },
   { id: "b4", jobId: "1", jobTitle: "Fix leaking kitchen pipe", artisan: "Suleiman Musa", rating: 4.6, reviews: 54, price: "₦12,000", message: "I can fix this same day. Available from 10am tomorrow. I carry all common pipe fittings.", submitted: "1h ago", initials: "SM", verified: true },
   { id: "b5", jobId: "1", jobTitle: "Fix leaking kitchen pipe", artisan: "Chidi Nwosu", rating: 4.9, reviews: 178, price: "₦15,000", message: "Includes full pipe section replacement and pressure test to ensure no future leaks.", submitted: "2h ago", initials: "CN", verified: true },
@@ -79,6 +83,26 @@ function timeAgo(ts: string) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+interface CustomerProfile {
+  fullName: string | null;
+  email: string | null;
+  state: string | null;
+  phone: string | null;
+}
+
+function getFirstName(fullName: string | null): string {
+  if (!fullName?.trim()) return "there";
+  return fullName.trim().split(/\s+/)[0];
+}
+
+function getInitials(fullName: string | null, email: string | null): string {
+  if (fullName?.trim()) {
+    return fullName.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  }
+  if (email) return email[0].toUpperCase();
+  return "?";
+}
+
 export default function CustomerDashboard() {
   const router = useRouter();
   const [tab, setTab] = useState("overview");
@@ -89,17 +113,36 @@ export default function CustomerDashboard() {
   const [demoMode, setDemoMode] = useState(true);
   const [liveJobs, setLiveJobs] = useState<typeof JOBS>([]);
   const [liveBids, setLiveBids] = useState<typeof BIDS>([]);
+  const [livePayments, setLivePayments] = useState<typeof PAYMENTS>([]);
   const [liveLoading, setLiveLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<CustomerProfile | null>(null);
 
   useEffect(() => {
+    const demoRole = getDemoSession();
+    if (demoRole === "customer") {
+      setProfile(DEMO_PROFILES.customer);
+      return;
+    }
+    if (demoRole === "artisan") { router.replace("/artisan"); return; }
+    if (demoRole === "admin") { router.replace("/admin"); return; }
+
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace("/login"); return; }
-      const { data: profile } = await supabase
-        .from("profiles").select("role").eq("id", user.id).single();
-      if (profile?.role === "artisan") { router.replace("/artisan"); return; }
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("full_name, role, state, phone")
+        .eq("id", user.id)
+        .single();
+      if (profileRow?.role === "artisan") { router.replace("/artisan"); return; }
       setUserId(user.id);
+      setProfile({
+        fullName: profileRow?.full_name ?? (user.user_metadata?.full_name as string | undefined) ?? null,
+        email: user.email ?? null,
+        state: profileRow?.state ?? null,
+        phone: profileRow?.phone ?? null,
+      });
     });
   }, [router]);
 
@@ -110,7 +153,7 @@ export default function CustomerDashboard() {
 
     const { data: jobs } = await supabase
       .from("jobs")
-      .select("*, job_photos(count), bids(count)")
+      .select("*, job_photos(url), bids(count)")
       .eq("customer_id", userId)
       .order("created_at", { ascending: false });
 
@@ -134,7 +177,7 @@ export default function CustomerDashboard() {
         status: j.status as string,
         posted: timeAgo(j.created_at as string),
         budget: j.budget_amount ? `₦${Number(j.budget_amount).toLocaleString()}` : "Open to quotes",
-        photos: (j.job_photos as Array<{ count: number }>)?.[0]?.count ?? 0,
+        photos: (j.job_photos as Array<{ url: string }>)?.length ?? 0,
       }))
     );
 
@@ -142,7 +185,9 @@ export default function CustomerDashboard() {
       (bids ?? []).map((b: Record<string, unknown>) => {
         const name = (b.artisan as { full_name?: string } | null)?.full_name ?? "Artisan";
         const initials = name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
-        const job = jobs?.find((j: { id: string }) => j.id === b.job_id);
+        const job = jobs?.find((j: { id: string }) => j.id === b.job_id) as Record<string, unknown> | undefined;
+        const jobPhotos = (job?.job_photos as Array<{ url: string }>) ?? [];
+        const bidIndex = (bids ?? []).findIndex((x: { id: string }) => x.id === b.id);
         return {
           id: b.id as string,
           jobId: b.job_id as string,
@@ -155,6 +200,29 @@ export default function CustomerDashboard() {
           submitted: timeAgo(b.created_at as string),
           initials,
           verified: false,
+          coverImage: jobPhotos[0]?.url ?? OFFER_COVER_IMAGES[bidIndex % OFFER_COVER_IMAGES.length],
+        };
+      })
+    );
+
+    const { data: txns } = await supabase
+      .from("transactions")
+      .select("*, bids(job_id, jobs(title), artisan:profiles(full_name))")
+      .eq("customer_id", userId)
+      .order("created_at", { ascending: false });
+
+    setLivePayments(
+      (txns ?? []).map((t: Record<string, unknown>) => {
+        const bid = t.bids as Record<string, unknown> | null;
+        const job = bid?.jobs as Record<string, unknown> | null;
+        const artisan = bid?.artisan as { full_name?: string } | null;
+        return {
+          id: t.id as string,
+          job: (job?.title as string) ?? "Job",
+          artisan: artisan?.full_name ?? "Artisan",
+          amount: `₦${Number(t.amount).toLocaleString()}`,
+          date: t.status === "in_escrow" ? "In escrow" : new Date(t.created_at as string).toLocaleDateString("en-NG", { year: "numeric", month: "short", day: "numeric" }),
+          status: (t.status as string) === "in_escrow" ? "escrow" : "released",
         };
       })
     );
@@ -168,13 +236,17 @@ export default function CustomerDashboard() {
 
   const jobs = demoMode ? JOBS : liveJobs;
   const bids = demoMode ? BIDS : liveBids;
+  const payments = demoMode ? PAYMENTS : livePayments;
 
   const filteredBids = selectedJobFilter === "all"
     ? bids
     : bids.filter(b => b.jobId === selectedJobFilter);
 
+  const displayName = getFirstName(profile?.fullName ?? null);
+  const initials = getInitials(profile?.fullName ?? null, profile?.email ?? null);
+
   const pageTitle = () => {
-    if (tab === "overview") return "Welcome back, Adaeze";
+    if (tab === "overview") return `Welcome back, ${displayName}`;
     if (tab === "jobs") return "My Tasks";
     if (tab === "bids") return "Offers for Me";
     return NAV.find(n => n.id === tab)?.label ?? "";
@@ -205,7 +277,7 @@ export default function CustomerDashboard() {
             borderRight: "1px solid #1E1E1A",
           }}
         >
-          <SidebarContent tab={tab} setTab={setTab} setSidebarOpen={setSidebarOpen} />
+          <SidebarContent tab={tab} setTab={setTab} setSidebarOpen={setSidebarOpen} profile={profile} initials={initials} />
         </motion.aside>
 
         {/* Desktop sidebar — always visible */}
@@ -219,7 +291,7 @@ export default function CustomerDashboard() {
             borderRight: "1px solid #1E1E1A",
           }}
         >
-          <SidebarContent tab={tab} setTab={setTab} setSidebarOpen={setSidebarOpen} />
+          <SidebarContent tab={tab} setTab={setTab} setSidebarOpen={setSidebarOpen} profile={profile} initials={initials} />
         </aside>
       </>
 
@@ -233,7 +305,7 @@ export default function CustomerDashboard() {
             </svg>
           </button>
           <span className="font-serif text-[18px]" style={{ color: "var(--color-ochre)" }}>FIXORA</span>
-          <div className="w-9 h-9 rounded-full flex items-center justify-center font-sans text-[13px] font-semibold" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>AO</div>
+          <div className="w-9 h-9 rounded-full flex items-center justify-center font-sans text-[13px] font-semibold" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>{initials}</div>
         </div>
 
         <div className="flex-1 overflow-auto">
@@ -305,10 +377,10 @@ export default function CustomerDashboard() {
                   {/* Stats */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                     {[
-                      { label: "Open Tasks", value: "3", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>, accent: "#C8861A", glow: "rgba(200,134,26,0.15)" },
-                      { label: "Offers In", value: "12", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, accent: "#3B82F6", glow: "rgba(59,130,246,0.12)" },
-                      { label: "Underway", value: "1", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>, accent: "#F59E0B", glow: "rgba(245,158,11,0.12)" },
-                      { label: "Done", value: "8", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>, accent: "#2ECC6A", glow: "rgba(46,204,106,0.12)" },
+                      { label: "Open Tasks", value: jobs.filter(j => j.status !== "completed").length.toString(), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>, accent: "#C8861A", glow: "rgba(200,134,26,0.15)" },
+                      { label: "Offers In", value: bids.length.toString(), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, accent: "#3B82F6", glow: "rgba(59,130,246,0.12)" },
+                      { label: "Underway", value: jobs.filter(j => j.status === "in_progress").length.toString(), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>, accent: "#F59E0B", glow: "rgba(245,158,11,0.12)" },
+                      { label: "Done", value: jobs.filter(j => j.status === "completed").length.toString(), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>, accent: "#2ECC6A", glow: "rgba(46,204,106,0.12)" },
                     ].map(stat => (
                       <motion.div
                         key={stat.label}
@@ -407,15 +479,25 @@ export default function CustomerDashboard() {
               {tab === "payments" && (
                 <motion.div key="payments" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
                   {/* Balance card */}
-                  <div className="rounded-2xl p-6 mb-6 relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(200,134,26,0.15) 0%, rgba(200,134,26,0.04) 100%)", border: "1px solid rgba(200,134,26,0.2)" }}>
-                    <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl pointer-events-none" style={{ background: "rgba(200,134,26,0.1)", transform: "translate(30%, -30%)" }} />
-                    <p className="font-mono text-[11px] uppercase tracking-widest mb-1" style={{ color: "var(--color-ochre)" }}>Escrow Balance</p>
-                    <p className="font-serif mb-1" style={{ fontSize: "40px", color: "var(--color-cream)" }}>₦45,000</p>
-                    <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>Held for — Install split AC unit</p>
-                  </div>
+                  {(() => {
+                    const escrow = payments.filter(p => p.status === "escrow");
+                    const escrowTotal = escrow.reduce((s, p) => s + Number(p.amount.replace(/[^0-9]/g, "")), 0);
+                    return (
+                      <div className="rounded-2xl p-6 mb-6 relative overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(200,134,26,0.15) 0%, rgba(200,134,26,0.04) 100%)", border: "1px solid rgba(200,134,26,0.2)" }}>
+                        <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl pointer-events-none" style={{ background: "rgba(200,134,26,0.1)", transform: "translate(30%, -30%)" }} />
+                        <p className="font-mono text-[11px] uppercase tracking-widest mb-1" style={{ color: "var(--color-ochre)" }}>Escrow Balance</p>
+                        <p className="font-serif mb-1" style={{ fontSize: "40px", color: "var(--color-cream)" }}>₦{escrowTotal.toLocaleString()}</p>
+                        <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>
+                          {escrow.length > 0 ? `Held for — ${escrow[0].job}` : "No funds in escrow"}
+                        </p>
+                      </div>
+                    );
+                  })()}
                   <h2 className="font-sans text-[16px] font-semibold mb-4" style={{ color: "var(--color-cream)" }}>Payment History</h2>
                   <div className="flex flex-col gap-2">
-                    {PAYMENTS.map(p => (
+                    {payments.length === 0 && !demoMode ? (
+                      <p className="font-sans text-[14px] py-8 text-center" style={{ color: "#5A5A50" }}>No payments yet.</p>
+                    ) : payments.map(p => (
                       <div key={p.id} className="flex items-center justify-between rounded-xl px-5 py-4 transition-colors duration-200"
                         style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}
                         onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.borderColor = "#2A2A25")}
@@ -443,17 +525,17 @@ export default function CustomerDashboard() {
                   <div className="max-w-lg">
                     <div className="rounded-2xl p-6 mb-5" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
                       <div className="flex items-center gap-4 mb-6">
-                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-serif text-[24px]" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>A</div>
+                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-serif text-[24px]" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>{initials}</div>
                         <div>
-                          <h2 className="font-sans text-[18px] font-semibold" style={{ color: "var(--color-cream)" }}>Adaeze Obi</h2>
-                          <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>Lagos, Nigeria</p>
+                          <h2 className="font-sans text-[18px] font-semibold" style={{ color: "var(--color-cream)" }}>{profile?.fullName ?? "—"}</h2>
+                          <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>{profile?.state ? `${profile.state}, Nigeria` : "Nigeria"}</p>
                         </div>
                       </div>
                       {[
-                        { label: "Full name", value: "Adaeze Obi" },
-                        { label: "Email", value: "adaeze.obi@gmail.com" },
-                        { label: "Phone", value: "+234 803 456 7890" },
-                        { label: "Location", value: "Lagos Island, Lagos" },
+                        { label: "Full name", value: profile?.fullName ?? "—" },
+                        { label: "Email", value: profile?.email ?? "—" },
+                        { label: "Phone", value: profile?.phone ?? "Not set" },
+                        { label: "Location", value: profile?.state ?? "Not set" },
                       ].map(field => (
                         <div key={field.label} className="flex items-center justify-between py-3 border-b" style={{ borderColor: "#1E1E1A" }}>
                           <span className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>{field.label}</span>
@@ -489,7 +571,19 @@ export default function CustomerDashboard() {
   );
 }
 
-function SidebarContent({ tab, setTab, setSidebarOpen }: { tab: string; setTab: (t: string) => void; setSidebarOpen: (v: boolean) => void }) {
+function SidebarContent({
+  tab,
+  setTab,
+  setSidebarOpen,
+  profile,
+  initials,
+}: {
+  tab: string;
+  setTab: (t: string) => void;
+  setSidebarOpen: (v: boolean) => void;
+  profile: CustomerProfile | null;
+  initials: string;
+}) {
   return (
     <>
       {/* Logo */}
@@ -539,10 +633,10 @@ function SidebarContent({ tab, setTab, setSidebarOpen }: { tab: string; setTab: 
           ← Back to marketplace
         </Link>
         <div className="flex items-center gap-3 rounded-xl p-3" style={{ backgroundColor: "#131310", border: "1px solid #1E1E1A" }}>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center font-sans text-[12px] font-semibold flex-shrink-0" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>AO</div>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center font-sans text-[12px] font-semibold flex-shrink-0" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>{initials}</div>
           <div className="min-w-0">
-            <p className="font-sans text-[13px] font-medium truncate" style={{ color: "var(--color-cream)" }}>Adaeze Obi</p>
-            <p className="font-sans text-[11px] truncate" style={{ color: "#5A5A50" }}>adaeze.obi@gmail.com</p>
+            <p className="font-sans text-[13px] font-medium truncate" style={{ color: "var(--color-cream)" }}>{profile?.fullName ?? "Customer"}</p>
+            <p className="font-sans text-[11px] truncate" style={{ color: "#5A5A50" }}>{profile?.email ?? ""}</p>
           </div>
         </div>
       </div>
@@ -609,10 +703,12 @@ function BidCard({ bid, accepted, declined, onAccept, onDecline, showJobTitle = 
   onDecline: () => void;
   showJobTitle?: boolean;
 }) {
+  const showCover = showJobTitle && bid.coverImage;
+
   return (
     <motion.div
       layout
-      className="rounded-2xl p-5 transition-all duration-200"
+      className="rounded-2xl overflow-hidden transition-all duration-200"
       style={{
         background: accepted
           ? "linear-gradient(135deg, rgba(46,204,106,0.06), rgba(46,204,106,0.02))"
@@ -623,7 +719,31 @@ function BidCard({ bid, accepted, declined, onAccept, onDecline, showJobTitle = 
         opacity: declined ? 0.6 : 1,
       }}
     >
-      {showJobTitle && (
+      {showCover && (
+        <div className="relative h-36 w-full">
+          <Image
+            src={bid.coverImage!}
+            alt={bid.jobTitle}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 50vw"
+          />
+          <div
+            className="absolute inset-0"
+            style={{ background: "linear-gradient(to top, rgba(17,17,16,0.95) 0%, rgba(17,17,16,0.2) 55%, rgba(17,17,16,0.35) 100%)" }}
+          />
+          <div className="absolute bottom-0 left-0 right-0 p-4">
+            <p className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: "rgba(200,134,26,0.9)" }}>
+              Offer for
+            </p>
+            <p className="font-sans text-[14px] font-semibold leading-snug" style={{ color: "var(--color-cream)" }}>
+              {bid.jobTitle}
+            </p>
+          </div>
+        </div>
+      )}
+      <div className="p-5">
+      {showJobTitle && !showCover && (
         <p className="font-mono text-[10px] uppercase tracking-wider mb-3" style={{ color: "#5A5A50" }}>
           Offer for: {bid.jobTitle}
         </p>
@@ -687,6 +807,7 @@ function BidCard({ bid, accepted, declined, onAccept, onDecline, showJobTitle = 
           Offer declined
         </div>
       )}
+      </div>
     </motion.div>
   );
 }

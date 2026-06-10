@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+import { clearDemoSession } from "@/lib/demo-session";
 
 const links = [
   { label: "Home", href: "/" },
@@ -19,6 +20,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<{ initials: string; name: string; role: string } | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -68,15 +70,22 @@ export default function Navbar() {
   }, []);
 
   const signOut = async () => {
+    clearDemoSession();
     const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);
     router.push("/");
   };
 
+  const handleSignOutClick = () => {
+    setOpen(false);
+    setShowSignOutConfirm(true);
+  };
+
   const dashboardHref = user?.role === "artisan" ? "/artisan" : "/customer";
 
   return (
+    <>
     <motion.header
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -164,7 +173,7 @@ export default function Navbar() {
                         </div>
                       </Link>
                       <button
-                        onClick={signOut}
+                        onClick={handleSignOutClick}
                         className="font-sans text-[13px] transition-colors duration-200"
                         style={{ color: "#5A5A50" }}
                         onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#E84545")}
@@ -292,7 +301,7 @@ export default function Navbar() {
                       My Dashboard
                     </Link>
                     <button
-                      onClick={() => { setOpen(false); signOut(); }}
+                      onClick={handleSignOutClick}
                       className="font-sans text-[14px] text-left py-1"
                       style={{ color: "#5A5A50" }}
                     >
@@ -330,5 +339,50 @@ export default function Navbar() {
         )}
       </AnimatePresence>
     </motion.header>
+
+    <AnimatePresence>
+      {showSignOutConfirm && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[200] flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.45)" }}
+          onClick={() => setShowSignOutConfirm(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 8 }}
+            transition={{ duration: 0.18 }}
+            className="rounded-2xl p-8 w-full max-w-sm mx-4 flex flex-col gap-5"
+            style={{ background: "#1A1A14", border: "1px solid rgba(200,134,26,0.15)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-1">
+              <p className="font-sans text-[17px] font-semibold" style={{ color: "#F5F0E8" }}>Sign out?</p>
+              <p className="font-sans text-[13px]" style={{ color: "#8A8A7A" }}>You'll need to sign in again to access your account.</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowSignOutConfirm(false)}
+                className="flex-1 rounded-full py-2.5 font-sans text-[13px] font-semibold transition-colors"
+                style={{ background: "rgba(255,255,255,0.06)", color: "#C8C8B4" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowSignOutConfirm(false); signOut(); }}
+                className="flex-1 rounded-full py-2.5 font-sans text-[13px] font-semibold transition-colors"
+                style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}
+              >
+                Sign out
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+    </>
   );
 }

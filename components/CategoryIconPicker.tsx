@@ -85,7 +85,7 @@ export default function CategoryIconPicker({ value, onChange }: CategoryIconPick
                     e.currentTarget.style.backgroundColor = selected ? "rgba(200,134,26,0.14)" : "transparent";
                   }}
                 >
-                  <CategoryEmojiBadge emoji={getTradeEmoji(trade.id)} size="sm" active={selected} />
+                  <CategoryEmojiBadge emoji={getTradeEmoji(trade.id)} size="sm" active={selected} theme="dark" />
                   <span
                     className="font-sans text-[14px] leading-snug"
                     style={{ color: selected ? "var(--color-cream)" : "#8A8A80" }}

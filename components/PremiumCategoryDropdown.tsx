@@ -177,7 +177,7 @@ export default function PremiumCategoryDropdown({
                     e.currentTarget.style.backgroundColor = !value ? v.itemActive : "transparent";
                   }}
                 >
-                  <CategoryEmojiBadge emoji="✦" size="sm" active={!value} />
+                  <CategoryEmojiBadge emoji="✦" size="sm" active={!value} theme={variant} />
                   <span className="font-sans text-[14px] font-medium">{allLabel}</span>
                 </button>
               )}
@@ -205,7 +205,7 @@ export default function PremiumCategoryDropdown({
                         e.currentTarget.style.backgroundColor = active ? v.itemActive : "transparent";
                       }}
                     >
-                      <CategoryEmojiBadge emoji={getGroupEmoji(group.id)} size="sm" active={active} />
+                      <CategoryEmojiBadge emoji={getGroupEmoji(group.id)} size="sm" active={active} theme={variant} />
                       <span className="font-sans text-[14px] font-medium leading-snug">{group.label}</span>
                     </button>
                   );
@@ -245,7 +245,7 @@ export default function PremiumCategoryDropdown({
                             e.currentTarget.style.backgroundColor = active ? v.itemActive : "transparent";
                           }}
                         >
-                          <CategoryEmojiBadge emoji={getTradeEmoji(trade.id)} size="sm" active={active} />
+                          <CategoryEmojiBadge emoji={getTradeEmoji(trade.id)} size="sm" active={active} theme={variant} />
                           <span className="font-sans text-[14px] leading-snug">{trade.label}</span>
                         </button>
                       );

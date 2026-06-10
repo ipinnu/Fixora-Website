@@ -10,6 +10,7 @@ import NotificationBell from "@/components/dashboard/NotificationBell";
 import DemoToggle from "@/components/dashboard/DemoToggle";
 import MobileNav from "@/components/dashboard/MobileNav";
 import VerificationFlow from "@/components/dashboard/VerificationFlow";
+import { getDemoSession } from "@/lib/demo-session";
 import { getFilterGroupOptions, matchesCategoryFilter } from "@/lib/categories";
 
 const AVAILABLE_JOBS = [
@@ -81,9 +82,16 @@ export default function ArtisanDashboard() {
   const [demoMode, setDemoMode] = useState(true);
   const [liveJobs, setLiveJobs] = useState<typeof AVAILABLE_JOBS>([]);
   const [liveMyBids, setLiveMyBids] = useState<typeof MY_BIDS>([]);
+  const [liveTransactions, setLiveTransactions] = useState<typeof TRANSACTIONS>([]);
+  const [liveActiveJobs, setLiveActiveJobs] = useState<typeof ACTIVE_JOBS>([]);
   const [liveLoading, setLiveLoading] = useState(false);
 
   useEffect(() => {
+    const demoRole = getDemoSession();
+    if (demoRole === "artisan") return;
+    if (demoRole === "customer") { router.replace("/customer"); return; }
+    if (demoRole === "admin") { router.replace("/admin"); return; }
+
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace("/login"); return; }
@@ -150,6 +158,42 @@ export default function ArtisanDashboard() {
       })
     );
 
+    setLiveActiveJobs(
+      (myBids ?? [])
+        .filter((b: Record<string, unknown>) => b.status === "accepted")
+        .map((b: Record<string, unknown>) => {
+          const job = b.jobs as Record<string, unknown> | null;
+          return {
+            id: b.id as string,
+            title: (job?.title as string) ?? "Unknown job",
+            customer: "Customer",
+            phone: "",
+            location: [job?.lga, job?.state].filter(Boolean).join(", "),
+            amount: b.amount ? `₦${Number(b.amount).toLocaleString()}` : "—",
+            started: timeAgo(b.updated_at as string ?? b.created_at as string),
+            progress: 50,
+          };
+        })
+    );
+
+    const { data: txns } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("artisan_id", userId)
+      .order("created_at", { ascending: false });
+
+    setLiveTransactions(
+      (txns ?? []).map((t: Record<string, unknown>) => ({
+        id: t.id as string,
+        job: (t.job_title as string) ?? "Job",
+        amount: `+₦${Number(t.amount).toLocaleString()}`,
+        date: (t.status as string) === "in_escrow"
+          ? "In escrow"
+          : new Date(t.created_at as string).toLocaleDateString("en-NG", { year: "numeric", month: "short", day: "numeric" }),
+        status: (t.status as string) === "in_escrow" ? "escrow" : "paid",
+      }))
+    );
+
     setLiveLoading(false);
   }, [userId]);
 
@@ -159,6 +203,8 @@ export default function ArtisanDashboard() {
 
   const displayJobs = demoMode ? AVAILABLE_JOBS : liveJobs;
   const displayMyBids = demoMode ? MY_BIDS : liveMyBids;
+  const displayActiveJobs = demoMode ? ACTIVE_JOBS : liveActiveJobs;
+  const displayTransactions = demoMode ? TRANSACTIONS : liveTransactions;
   const [catFilter, setCatFilter] = useState("All");
   const [submittedBids, setSubmittedBids] = useState<Record<string, string>>({});
   const [bidInputs, setBidInputs] = useState<Record<string, string>>({});
@@ -512,8 +558,8 @@ export default function ArtisanDashboard() {
                     {[
                       { label: "Jobs Available", value: displayJobs.length.toString(), sub: "Near you", accent: "#C8861A", glow: "rgba(200,134,26,0.12)" },
                       { label: "Bids Sent", value: displayMyBids.length.toString(), sub: "This week", accent: "#3B82F6", glow: "rgba(59,130,246,0.1)" },
-                      { label: "Jobs Won", value: "42", sub: "All time", accent: "#2ECC6A", glow: "rgba(46,204,106,0.1)" },
-                      { label: "Total Earned", value: "₦248k", sub: "All time", accent: "#F59E0B", glow: "rgba(245,158,11,0.1)" },
+                      { label: "Jobs Won", value: displayMyBids.filter(b => b.status === "accepted").length.toString(), sub: "All time", accent: "#2ECC6A", glow: "rgba(46,204,106,0.1)" },
+                      { label: "Total Earned", value: demoMode ? "₦248k" : `₦${displayTransactions.filter(t => t.status === "paid").reduce((s, t) => s + Number(t.amount.replace(/[^0-9]/g, "")), 0).toLocaleString()}`, sub: "All time", accent: "#F59E0B", glow: "rgba(245,158,11,0.1)" },
                     ].map((stat, i) => (
                       <motion.div key={stat.label}
                         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
@@ -523,7 +569,7 @@ export default function ArtisanDashboard() {
                       >
                         <p className="font-mono text-[11px] uppercase tracking-wider mb-3" style={{ color: stat.accent }}>{stat.sub}</p>
                         <p className="font-serif mb-1" style={{ fontSize: "34px", color: "var(--color-cream)", lineHeight: 1 }}>{stat.value}</p>
-                        <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>{stat.label}</p>
+                        <p className="font-sans text-[13px]" style={{ color: "rgba(242,237,223,0.45)" }}>{stat.label}</p>
                       </motion.div>
                     ))}
                   </div>
@@ -545,10 +591,10 @@ export default function ArtisanDashboard() {
                   </div>
 
                   {/* Active job */}
-                  {ACTIVE_JOBS.length > 0 && (
+                  {displayActiveJobs.length > 0 && (
                     <div>
                       <h2 className="font-sans text-[16px] font-semibold mb-4" style={{ color: "var(--color-cream)" }}>Active Job</h2>
-                      {ACTIVE_JOBS.map(job => <ActiveJobCard key={job.id} job={job} />)}
+                      {displayActiveJobs.map(job => <ActiveJobCard key={job.id} job={job} />)}
                     </div>
                   )}
                 </motion.div>
@@ -602,7 +648,7 @@ export default function ArtisanDashboard() {
                         >
                           <div className="min-w-0 flex-1">
                             <p className="font-sans text-[14px] font-semibold mb-0.5 truncate" style={{ color: "var(--color-cream)" }}>{bid.title}</p>
-                            <p className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>{bid.category} · {bid.location} · {bid.submitted}</p>
+                            <p className="font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.4)" }}>{bid.category} · {bid.location} · {bid.submitted}</p>
                           </div>
                           <div className="flex items-center gap-4 flex-shrink-0">
                             <span className="font-mono text-[14px] font-semibold" style={{ color: "var(--color-ochre)" }}>{bid.myPrice}</span>
@@ -621,37 +667,58 @@ export default function ArtisanDashboard() {
               {tab === "active" && (
                 <motion.div key="active" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
                   <h2 className="font-sans text-[16px] font-semibold mb-5" style={{ color: "var(--color-cream)" }}>Active Jobs</h2>
-                  {ACTIVE_JOBS.map(job => <ActiveJobCard key={job.id} job={job} detailed />)}
+                  {displayActiveJobs.length === 0 ? (
+                    <p className="font-sans text-[14px]" style={{ color: "#5A5A50" }}>No active jobs yet.</p>
+                  ) : (
+                    displayActiveJobs.map(job => <ActiveJobCard key={job.id} job={job} detailed />)
+                  )}
                 </motion.div>
               )}
 
               {tab === "earnings" && (
                 <motion.div key="earnings" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
                   {/* Wallet */}
-                  <div className="grid md:grid-cols-3 gap-4 mb-8">
-                    <div className="md:col-span-2 rounded-2xl p-6 relative overflow-hidden"
-                      style={{ background: "linear-gradient(135deg, rgba(200,134,26,0.15) 0%, rgba(200,134,26,0.04) 100%)", border: "1px solid rgba(200,134,26,0.2)" }}>
-                      <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl pointer-events-none"
-                        style={{ background: "rgba(200,134,26,0.12)", transform: "translate(40%, -40%)" }} />
-                      <p className="font-mono text-[11px] uppercase tracking-widest mb-1" style={{ color: "var(--color-ochre)" }}>Total Earned</p>
-                      <p className="font-serif mb-1" style={{ fontSize: "48px", color: "var(--color-cream)", lineHeight: 1 }}>₦248,500</p>
-                      <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>Across 42 completed jobs</p>
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      <div className="rounded-2xl p-4 flex-1" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
-                        <p className="font-sans text-[11px] uppercase tracking-wider mb-1" style={{ color: "#5A5A50" }}>This Month</p>
-                        <p className="font-mono text-[22px] font-semibold" style={{ color: "#2ECC6A" }}>₦65,000</p>
+                  {(() => {
+                    const paidTxns = displayTransactions.filter(t => t.status === "paid");
+                    const escrowTxns = displayTransactions.filter(t => t.status === "escrow");
+                    const now = new Date();
+                    const thisMonthTxns = paidTxns.filter(t => {
+                      const d = new Date(t.date);
+                      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+                    });
+                    const totalEarned = demoMode ? 248500 : paidTxns.reduce((s, t) => s + Number(t.amount.replace(/[^0-9]/g, "")), 0);
+                    const thisMonth = demoMode ? 65000 : thisMonthTxns.reduce((s, t) => s + Number(t.amount.replace(/[^0-9]/g, "")), 0);
+                    const inEscrow = demoMode ? 18000 : escrowTxns.reduce((s, t) => s + Number(t.amount.replace(/[^0-9]/g, "")), 0);
+                    const jobsWon = demoMode ? 42 : displayMyBids.filter(b => b.status === "accepted").length;
+                    return (
+                      <div className="grid md:grid-cols-3 gap-4 mb-8">
+                        <div className="md:col-span-2 rounded-2xl p-6 relative overflow-hidden"
+                          style={{ background: "linear-gradient(135deg, rgba(200,134,26,0.15) 0%, rgba(200,134,26,0.04) 100%)", border: "1px solid rgba(200,134,26,0.2)" }}>
+                          <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl pointer-events-none"
+                            style={{ background: "rgba(200,134,26,0.12)", transform: "translate(40%, -40%)" }} />
+                          <p className="font-mono text-[11px] uppercase tracking-widest mb-1" style={{ color: "var(--color-ochre)" }}>Total Earned</p>
+                          <p className="font-serif mb-1" style={{ fontSize: "48px", color: "var(--color-cream)", lineHeight: 1 }}>₦{totalEarned.toLocaleString()}</p>
+                          <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>Across {jobsWon} completed jobs</p>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                          <div className="rounded-2xl p-4 flex-1" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
+                            <p className="font-sans text-[11px] uppercase tracking-wider mb-1" style={{ color: "rgba(242,237,223,0.4)" }}>This Month</p>
+                            <p className="font-mono text-[22px] font-semibold" style={{ color: "#2ECC6A" }}>₦{thisMonth.toLocaleString()}</p>
+                          </div>
+                          <div className="rounded-2xl p-4 flex-1" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
+                            <p className="font-sans text-[11px] uppercase tracking-wider mb-1" style={{ color: "rgba(242,237,223,0.4)" }}>In Escrow</p>
+                            <p className="font-mono text-[22px] font-semibold" style={{ color: "#3B82F6" }}>₦{inEscrow.toLocaleString()}</p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="rounded-2xl p-4 flex-1" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
-                        <p className="font-sans text-[11px] uppercase tracking-wider mb-1" style={{ color: "#5A5A50" }}>In Escrow</p>
-                        <p className="font-mono text-[22px] font-semibold" style={{ color: "#3B82F6" }}>₦18,000</p>
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   <h2 className="font-sans text-[16px] font-semibold mb-4" style={{ color: "var(--color-cream)" }}>Transactions</h2>
                   <div className="flex flex-col gap-2">
-                    {TRANSACTIONS.map((t, i) => (
+                    {displayTransactions.length === 0 && !demoMode ? (
+                      <p className="font-sans text-[14px] py-8 text-center" style={{ color: "#5A5A50" }}>No transactions yet.</p>
+                    ) : displayTransactions.map((t, i) => (
                       <motion.div key={t.id}
                         initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
                         className="flex items-center justify-between rounded-xl px-5 py-4 transition-colors duration-200"
@@ -661,11 +728,11 @@ export default function ArtisanDashboard() {
                       >
                         <div>
                           <p className="font-sans text-[14px] font-medium mb-0.5" style={{ color: "var(--color-cream)" }}>{t.job}</p>
-                          <p className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>{t.date}</p>
+                          <p className="font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.4)" }}>{t.date}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-mono text-[15px] font-semibold" style={{ color: t.status === "escrow" ? "#3B82F6" : "#2ECC6A" }}>{t.amount}</p>
-                          <span className="font-sans text-[11px]" style={{ color: t.status === "escrow" ? "#3B82F6" : "#5A5A50" }}>
+                          <span className="font-sans text-[11px]" style={{ color: t.status === "escrow" ? "#3B82F6" : "rgba(242,237,223,0.4)" }}>
                             {t.status === "escrow" ? "In escrow" : "Paid"}
                           </span>
                         </div>
@@ -858,19 +925,19 @@ function JobCard({ job, submitted, onBid, index }: {
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="flex items-center gap-1 font-sans text-[12px]" style={{ color: "#5A5A50" }}>
+        <span className="flex items-center gap-1 font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.5)" }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           {job.location}
         </span>
         {job.photos > 0 && (
-          <span className="flex items-center gap-1 font-sans text-[12px]" style={{ color: "#5A5A50" }}>
+          <span className="flex items-center gap-1 font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.35)" }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             {job.photos} photo{job.photos !== 1 ? "s" : ""}
           </span>
         )}
-        <span className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>{job.posted}</span>
+        <span className="font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.35)" }}>{job.posted}</span>
         {job.bids > 0 && (
-          <span className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>
+          <span className="font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.35)" }}>
             {job.bids} bid{job.bids !== 1 ? "s" : ""}
           </span>
         )}
@@ -910,7 +977,7 @@ function ActiveJobCard({ job, detailed = false }: { job: typeof ACTIVE_JOBS[0]; 
             <span className="font-mono text-[11px]" style={{ color: "#3B82F6" }}>IN PROGRESS</span>
           </div>
           <h3 className="font-sans text-[16px] font-semibold" style={{ color: "var(--color-cream)" }}>{job.title}</h3>
-          <p className="font-sans text-[13px] mt-0.5" style={{ color: "#5A5A50" }}>{job.location} · Started {job.started}</p>
+          <p className="font-sans text-[13px] mt-0.5" style={{ color: "rgba(242,237,223,0.45)" }}>{job.location} · Started {job.started}</p>
         </div>
         <p className="font-mono text-[18px] font-semibold flex-shrink-0" style={{ color: "#2ECC6A" }}>{job.amount}</p>
       </div>

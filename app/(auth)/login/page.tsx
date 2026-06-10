@@ -7,6 +7,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { clearDemoSession, DEMO_ROUTES, setDemoSession, type DemoRole } from "@/lib/demo-session";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,8 +27,15 @@ export default function LoginPage() {
     });
     setLoading(false);
     if (error) { setError(error.message); return; }
+    clearDemoSession();
     const role = data.user?.user_metadata?.role;
     router.push(role === "artisan" ? "/artisan" : "/customer");
+  };
+
+  const handleDemoLogin = (role: DemoRole) => {
+    setError("");
+    setDemoSession(role);
+    router.push(DEMO_ROUTES[role]);
   };
 
   const handleGoogle = async () => {
@@ -227,6 +235,49 @@ export default function LoginPage() {
             </svg>
             Continue with Google
           </motion.button>
+
+          {/* Demo exploration logins */}
+          <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--color-border)" }}>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-center mb-3" style={{ color: "var(--color-muted)" }}>
+              Demo access
+            </p>
+            <p className="font-sans text-[12px] text-center mb-4 leading-relaxed" style={{ color: "var(--color-muted)" }}>
+              Explore dashboards with sample data — no account needed
+            </p>
+            <div className="flex flex-col gap-2">
+              {([
+                { role: "customer" as DemoRole, label: "Demo Client", sub: "Homeowner dashboard" },
+                { role: "artisan" as DemoRole, label: "Demo Artisan", sub: "Artisan dashboard" },
+                { role: "admin" as DemoRole, label: "Demo Admin", sub: "Admin panel" },
+              ]).map((item) => (
+                <button
+                  key={item.role}
+                  type="button"
+                  onClick={() => handleDemoLogin(item.role)}
+                  className="flex items-center justify-between h-11 px-4 rounded-xl border transition-all duration-200 cursor-pointer"
+                  style={{
+                    backgroundColor: "var(--color-bg-3)",
+                    borderColor: "var(--color-border)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(200,134,26,0.35)";
+                    e.currentTarget.style.backgroundColor = "rgba(200,134,26,0.06)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = "var(--color-border)";
+                    e.currentTarget.style.backgroundColor = "var(--color-bg-3)";
+                  }}
+                >
+                  <span className="font-sans text-[14px] font-medium" style={{ color: "var(--color-cream)" }}>
+                    {item.label}
+                  </span>
+                  <span className="font-sans text-[11px]" style={{ color: "var(--color-muted)" }}>
+                    {item.sub}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         </motion.div>
       </div>
     </div>
