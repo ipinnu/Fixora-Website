@@ -10,7 +10,9 @@ import NotificationBell from "@/components/dashboard/NotificationBell";
 import DemoToggle from "@/components/dashboard/DemoToggle";
 import MobileNav from "@/components/dashboard/MobileNav";
 import VerificationFlow from "@/components/dashboard/VerificationFlow";
+import ProofOfWorkModal from "@/components/dashboard/ProofOfWorkModal";
 import { fetchArtisanVerificationStatus, type VerificationStatus } from "@/lib/supabase/verification";
+import type { CompletionStatus } from "@/lib/supabase/completions";
 import { getDemoSession } from "@/lib/demo-session";
 import { getFilterGroupOptions, matchesCategoryFilter } from "@/lib/categories";
 
@@ -33,8 +35,32 @@ const MY_BIDS = [
   { id: "mb5", title: "Repair gas cooker", location: "Surulere, Lagos", category: "Appliances", myPrice: "₦12,000", status: "pending", submitted: "8h ago", customer: "Chidi N." },
 ];
 
-const ACTIVE_JOBS = [
-  { id: "aj1", title: "Install ceiling fans x3", customer: "Adaeze Obi", phone: "+234 803 456 7890", location: "Gbagada, Lagos", amount: "₦18,000", started: "Yesterday", progress: 70 },
+type ActiveJob = {
+  id: string;
+  jobId: string;
+  title: string;
+  customer: string;
+  phone: string;
+  location: string;
+  amount: string;
+  started: string;
+  progress: number;
+  completionStatus: CompletionStatus | "none";
+};
+
+const ACTIVE_JOBS: ActiveJob[] = [
+  {
+    id: "aj1",
+    jobId: "dj5",
+    title: "Install ceiling fans x3",
+    customer: "Adaeze Obi",
+    phone: "+234 803 456 7890",
+    location: "Gbagada, Lagos",
+    amount: "₦18,000",
+    started: "Yesterday",
+    progress: 85,
+    completionStatus: "none",
+  },
 ];
 
 const TRANSACTIONS = [
@@ -84,7 +110,8 @@ export default function ArtisanDashboard() {
   const [liveJobs, setLiveJobs] = useState<typeof AVAILABLE_JOBS>([]);
   const [liveMyBids, setLiveMyBids] = useState<typeof MY_BIDS>([]);
   const [liveTransactions, setLiveTransactions] = useState<typeof TRANSACTIONS>([]);
-  const [liveActiveJobs, setLiveActiveJobs] = useState<typeof ACTIVE_JOBS>([]);
+  const [liveActiveJobs, setLiveActiveJobs] = useState<ActiveJob[]>([]);
+  const [demoActiveJobs, setDemoActiveJobs] = useState<ActiveJob[]>(ACTIVE_JOBS);
   const [liveLoading, setLiveLoading] = useState(false);
 
   useEffect(() => {
@@ -159,20 +186,38 @@ export default function ArtisanDashboard() {
       })
     );
 
+    const { data: completions } = await supabase
+      .from("job_completions")
+      .select("bid_id, status")
+      .eq("artisan_id", userId);
+
+    const completionByBid = new Map(
+      (completions ?? []).map((c) => [c.bid_id, c.status as CompletionStatus]),
+    );
+
     setLiveActiveJobs(
       (myBids ?? [])
         .filter((b: Record<string, unknown>) => b.status === "accepted")
         .map((b: Record<string, unknown>) => {
           const job = b.jobs as Record<string, unknown> | null;
+          const bidId = b.id as string;
+          const completionStatus = completionByBid.get(bidId) ?? "none";
+          const progress =
+            completionStatus === "approved" ? 100
+            : completionStatus === "submitted" ? 90
+            : completionStatus === "rejected" ? 60
+            : 50;
           return {
-            id: b.id as string,
+            id: bidId,
+            jobId: (job?.id as string) ?? bidId,
             title: (job?.title as string) ?? "Unknown job",
             customer: "Customer",
             phone: "",
             location: [job?.lga, job?.state].filter(Boolean).join(", "),
             amount: b.amount ? `₦${Number(b.amount).toLocaleString()}` : "—",
-            started: timeAgo(b.updated_at as string ?? b.created_at as string),
-            progress: 50,
+            started: timeAgo((b.updated_at as string) ?? (b.created_at as string)),
+            progress,
+            completionStatus,
           };
         })
     );
@@ -209,7 +254,7 @@ export default function ArtisanDashboard() {
 
   const displayJobs = demoMode ? AVAILABLE_JOBS : liveJobs;
   const displayMyBids = demoMode ? MY_BIDS : liveMyBids;
-  const displayActiveJobs = demoMode ? ACTIVE_JOBS : liveActiveJobs;
+  const displayActiveJobs = demoMode ? demoActiveJobs : liveActiveJobs;
   const displayTransactions = demoMode ? TRANSACTIONS : liveTransactions;
   const [catFilter, setCatFilter] = useState("All");
   const [submittedBids, setSubmittedBids] = useState<Record<string, string>>({});
@@ -220,6 +265,7 @@ export default function ArtisanDashboard() {
 
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("unverified");
   const [showVerification, setShowVerification] = useState(false);
+  const [proofJob, setProofJob] = useState<{ jobId: string; bidId: string; title: string } | null>(null);
   const [bidError, setBidError] = useState("");
   const [bidMessages, setBidMessages] = useState<Record<string, string>>({});
 
@@ -626,7 +672,9 @@ export default function ArtisanDashboard() {
                   {displayActiveJobs.length > 0 && (
                     <div>
                       <h2 className="font-sans text-[16px] font-semibold mb-4" style={{ color: "var(--color-cream)" }}>Active Job</h2>
-                      {displayActiveJobs.map(job => <ActiveJobCard key={job.id} job={job} />)}
+                      {displayActiveJobs.map(job => (
+                        <ActiveJobCard key={job.id} job={job} onSubmitProof={() => setProofJob({ jobId: job.jobId, bidId: job.id, title: job.title })} />
+                      ))}
                     </div>
                   )}
                 </motion.div>
@@ -702,7 +750,14 @@ export default function ArtisanDashboard() {
                   {displayActiveJobs.length === 0 ? (
                     <p className="font-sans text-[14px]" style={{ color: "#5A5A50" }}>No active jobs yet.</p>
                   ) : (
-                    displayActiveJobs.map(job => <ActiveJobCard key={job.id} job={job} detailed />)
+                    displayActiveJobs.map(job => (
+                      <ActiveJobCard
+                        key={job.id}
+                        job={job}
+                        detailed
+                        onSubmitProof={() => setProofJob({ jobId: job.jobId, bidId: job.id, title: job.title })}
+                      />
+                    ))
                   )}
                 </motion.div>
               )}
@@ -834,6 +889,31 @@ export default function ArtisanDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Proof of work modal */}
+      {proofJob && (
+        <ProofOfWorkModal
+          jobId={proofJob.jobId}
+          bidId={proofJob.bidId}
+          jobTitle={proofJob.title}
+          demoMode={demoMode}
+          onClose={() => setProofJob(null)}
+          onSubmitted={() => {
+            if (demoMode) {
+              setDemoActiveJobs((prev) =>
+                prev.map((j) =>
+                  j.id === proofJob.bidId
+                    ? { ...j, completionStatus: "submitted", progress: 90 }
+                    : j,
+                ),
+              );
+            } else {
+              loadLiveData();
+            }
+            setProofJob(null);
+          }}
+        />
+      )}
 
       {/* Verification flow modal */}
       <AnimatePresence>
@@ -999,7 +1079,17 @@ function JobCard({ job, submitted, onBid, index }: {
   );
 }
 
-function ActiveJobCard({ job, detailed = false }: { job: typeof ACTIVE_JOBS[0]; detailed?: boolean }) {
+function ActiveJobCard({
+  job,
+  detailed = false,
+  onSubmitProof,
+}: {
+  job: ActiveJob;
+  detailed?: boolean;
+  onSubmitProof?: () => void;
+}) {
+  const canSubmit = job.completionStatus === "none" || job.completionStatus === "rejected";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -1010,7 +1100,9 @@ function ActiveJobCard({ job, detailed = false }: { job: typeof ACTIVE_JOBS[0]; 
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: "#3B82F6" }} />
-            <span className="font-mono text-[11px]" style={{ color: "#3B82F6" }}>IN PROGRESS</span>
+            <span className="font-mono text-[11px]" style={{ color: "#3B82F6" }}>
+              {job.completionStatus === "submitted" ? "AWAITING ADMIN REVIEW" : job.completionStatus === "approved" ? "PAID" : "IN PROGRESS"}
+            </span>
           </div>
           <h3 className="font-sans text-[16px] font-semibold" style={{ color: "var(--color-cream)" }}>{job.title}</h3>
           <p className="font-sans text-[13px] mt-0.5" style={{ color: "rgba(242,237,223,0.45)" }}>{job.location} · Started {job.started}</p>
@@ -1035,19 +1127,43 @@ function ActiveJobCard({ job, detailed = false }: { job: typeof ACTIVE_JOBS[0]; 
         </div>
       </div>
 
+      {job.completionStatus === "submitted" && (
+        <p className="font-sans text-[12px] mb-4 rounded-xl px-3 py-2" style={{ backgroundColor: "rgba(200,134,26,0.08)", color: "var(--color-ochre)", border: "1px solid rgba(200,134,26,0.15)" }}>
+          Proof submitted — waiting for admin to verify work and release payment.
+        </p>
+      )}
+      {job.completionStatus === "rejected" && (
+        <p className="font-sans text-[12px] mb-4 rounded-xl px-3 py-2" style={{ backgroundColor: "rgba(232,69,69,0.08)", color: "#E84545", border: "1px solid rgba(232,69,69,0.15)" }}>
+          Proof was rejected — please resubmit clearer photos and notes.
+        </p>
+      )}
+
+      {canSubmit && onSubmitProof && (
+        <motion.button
+          whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+          onClick={onSubmitProof}
+          className="w-full h-10 rounded-xl font-sans text-[13px] font-semibold mb-4"
+          style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}
+        >
+          {job.completionStatus === "rejected" ? "Resubmit proof of work" : "Submit proof of work"}
+        </motion.button>
+      )}
+
       {detailed && (
         <div className="flex items-center gap-3">
           <div className="flex-1 rounded-xl p-3" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
             <p className="font-sans text-[11px] mb-0.5" style={{ color: "#5A5A50" }}>Customer</p>
             <p className="font-sans text-[13px] font-medium" style={{ color: "var(--color-cream)" }}>{job.customer}</p>
           </div>
-          <a href={`tel:${job.phone}`}
-            className="flex items-center justify-center gap-2 h-full rounded-xl px-4 font-sans text-[13px] font-semibold"
-            style={{ backgroundColor: "rgba(46,204,106,0.08)", color: "#2ECC6A", border: "1px solid rgba(46,204,106,0.15)" }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 6 6l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.72 16z"/></svg>
-            Call
-          </a>
+          {job.phone && (
+            <a href={`tel:${job.phone}`}
+              className="flex items-center justify-center gap-2 h-full rounded-xl px-4 font-sans text-[13px] font-semibold"
+              style={{ backgroundColor: "rgba(46,204,106,0.08)", color: "#2ECC6A", border: "1px solid rgba(46,204,106,0.15)" }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 6 6l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.72 16z"/></svg>
+              Call
+            </a>
+          )}
         </div>
       )}
     </motion.div>

@@ -9,11 +9,16 @@ import { clearDemoSession, getDemoSession } from "@/lib/demo-session";
 import {
   loadDemoAdminData,
   type DemoAdminJob,
-  type DemoAdminTxn,
   type DemoAdminUser,
 } from "@/lib/demo-admin";
 import VerificationReviewPanel from "@/components/admin/VerificationReviewPanel";
+import TransactionReviewPanel from "@/components/admin/TransactionReviewPanel";
 import { fetchAllVerifications, reviewVerification, type ArtisanVerificationRow } from "@/lib/supabase/verification";
+import {
+  fetchAllTransactionsWithCompletions,
+  adminReviewProofAndRelease,
+  type TransactionWithCompletion,
+} from "@/lib/supabase/completions";
 
 const ADMIN_EMAIL = "ipinnu.oladipo23@gmail.com";
 
@@ -38,7 +43,7 @@ export default function AdminPage() {
   const [tab, setTab] = useState("users");
   const [users, setUsers] = useState<DemoAdminUser[]>([]);
   const [jobs, setJobs] = useState<DemoAdminJob[]>([]);
-  const [txns, setTxns] = useState<DemoAdminTxn[]>([]);
+  const [txns, setTxns] = useState<TransactionWithCompletion[]>([]);
   const [verifications, setVerifications] = useState<ArtisanVerificationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
@@ -71,20 +76,31 @@ export default function AdminPage() {
       return;
     }
     const supabase = createClient();
-    const [{ data: u }, { data: j }, { data: t }] = await Promise.all([
+    const [{ data: u }, { data: j }] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("jobs").select("id, title, category, state, status, created_at, budget_amount").order("created_at", { ascending: false }),
-      supabase.from("transactions").select("*").order("created_at", { ascending: false }),
     ]);
     setUsers((u ?? []) as DemoAdminUser[]);
     setJobs((j ?? []) as DemoAdminJob[]);
-    setTxns((t ?? []) as DemoAdminTxn[]);
+    const txnRows = await fetchAllTransactionsWithCompletions();
+    setTxns(txnRows);
     const rows = await fetchAllVerifications();
     setVerifications(rows);
   }, [demoMode, loadDemo]);
 
   const handleReview = async (id: string, artisanId: string, decision: "approved" | "rejected", notes?: string) => {
     const { error } = await reviewVerification(id, artisanId, decision, notes);
+    if (!error) await load();
+  };
+
+  const handlePaymentReview = async (
+    completionId: string,
+    transactionId: string,
+    jobId: string,
+    decision: "approved" | "rejected",
+    notes?: string,
+  ) => {
+    const { error } = await adminReviewProofAndRelease(completionId, transactionId, jobId, decision, notes);
     if (!error) await load();
   };
 
@@ -174,7 +190,7 @@ export default function AdminPage() {
                   <thead>
                     <tr style={{ backgroundColor: "#111110", borderBottom: "1px solid #1E1E1A" }}>
                       {["Name", "Role", "Trade/State", "Joined"].map(h => (
-                        <th key={h} className="px-4 py-3 text-left font-sans text-[11px] uppercase tracking-wider" style={{ color: "#5A5A50" }}>{h}</th>
+                        <th key={h} className="px-4 py-3 text-left font-sans text-[11px] uppercase tracking-wider" style={{ color: "rgba(242,237,223,0.35)" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -188,8 +204,8 @@ export default function AdminPage() {
                             {u.role ?? "—"}
                           </span>
                         </td>
-                        <td className="px-4 py-3 font-sans text-[13px]" style={{ color: "#5A5A50" }}>{u.trade ?? u.state ?? "—"}</td>
-                        <td className="px-4 py-3 font-mono text-[12px]" style={{ color: "#5A5A50" }}>
+                        <td className="px-4 py-3 font-sans text-[13px]" style={{ color: "rgba(242,237,223,0.55)" }}>{u.trade ?? u.state ?? "—"}</td>
+                        <td className="px-4 py-3 font-mono text-[12px]" style={{ color: "rgba(242,237,223,0.4)" }}>
                           {new Date(u.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}
                         </td>
                       </tr>
@@ -207,7 +223,7 @@ export default function AdminPage() {
                   <thead>
                     <tr style={{ backgroundColor: "#111110", borderBottom: "1px solid #1E1E1A" }}>
                       {["Job", "Category", "Location", "Status", "Budget", "Posted"].map(h => (
-                        <th key={h} className="px-4 py-3 text-left font-sans text-[11px] uppercase tracking-wider" style={{ color: "#5A5A50" }}>{h}</th>
+                        <th key={h} className="px-4 py-3 text-left font-sans text-[11px] uppercase tracking-wider" style={{ color: "rgba(242,237,223,0.35)" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -215,18 +231,18 @@ export default function AdminPage() {
                     {jobs.map((j, i) => (
                       <tr key={j.id} style={{ backgroundColor: i % 2 === 0 ? "#0F0F0D" : "#111110", borderBottom: "1px solid #1E1E1A" }}>
                         <td className="px-4 py-3 font-sans text-[13px] max-w-[200px] truncate" style={{ color: "var(--color-cream)" }}>{j.title}</td>
-                        <td className="px-4 py-3 font-sans text-[12px]" style={{ color: "#5A5A50" }}>{j.category}</td>
-                        <td className="px-4 py-3 font-sans text-[12px]" style={{ color: "#5A5A50" }}>{j.state}</td>
+                        <td className="px-4 py-3 font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.55)" }}>{j.category}</td>
+                        <td className="px-4 py-3 font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.55)" }}>{j.state}</td>
                         <td className="px-4 py-3">
                           <span className="font-sans text-[11px] rounded-full px-2.5 py-1"
                             style={{ backgroundColor: j.status === "open" ? "rgba(46,204,106,0.08)" : j.status === "in_progress" ? "rgba(59,130,246,0.08)" : "rgba(122,122,106,0.1)", color: j.status === "open" ? "#2ECC6A" : j.status === "in_progress" ? "#3B82F6" : "#7A7A6A" }}>
                             {j.status.replace("_", " ")}
                           </span>
                         </td>
-                        <td className="px-4 py-3 font-mono text-[12px]" style={{ color: "#5A5A50" }}>
+                        <td className="px-4 py-3 font-mono text-[12px]" style={{ color: "rgba(242,237,223,0.55)" }}>
                           {j.budget_amount ? `₦${Number(j.budget_amount).toLocaleString()}` : "Open"}
                         </td>
-                        <td className="px-4 py-3 font-mono text-[12px]" style={{ color: "#5A5A50" }}>
+                        <td className="px-4 py-3 font-mono text-[12px]" style={{ color: "rgba(242,237,223,0.4)" }}>
                           {new Date(j.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}
                         </td>
                       </tr>
@@ -239,35 +255,11 @@ export default function AdminPage() {
 
           {tab === "transactions" && (
             <motion.div key="transactions" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid #1E1E1A" }}>
-                <table className="w-full">
-                  <thead>
-                    <tr style={{ backgroundColor: "#111110", borderBottom: "1px solid #1E1E1A" }}>
-                      {["Reference", "Amount", "Fee (5%)", "Status", "Date"].map(h => (
-                        <th key={h} className="px-4 py-3 text-left font-sans text-[11px] uppercase tracking-wider" style={{ color: "#5A5A50" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {txns.map((t, i) => (
-                      <tr key={t.id} style={{ backgroundColor: i % 2 === 0 ? "#0F0F0D" : "#111110", borderBottom: "1px solid #1E1E1A" }}>
-                        <td className="px-4 py-3 font-mono text-[11px]" style={{ color: "#5A5A50" }}>{t.reference.slice(0, 20)}…</td>
-                        <td className="px-4 py-3 font-mono text-[13px] font-semibold" style={{ color: "var(--color-ochre)" }}>₦{Number(t.amount).toLocaleString()}</td>
-                        <td className="px-4 py-3 font-mono text-[12px]" style={{ color: "#2ECC6A" }}>₦{Math.round(t.amount * 0.05).toLocaleString()}</td>
-                        <td className="px-4 py-3">
-                          <span className="font-sans text-[11px] rounded-full px-2.5 py-1"
-                            style={{ backgroundColor: t.status === "paid" ? "rgba(46,204,106,0.08)" : t.status === "in_escrow" ? "rgba(59,130,246,0.08)" : "rgba(122,122,106,0.1)", color: t.status === "paid" ? "#2ECC6A" : t.status === "in_escrow" ? "#3B82F6" : "#7A7A6A" }}>
-                            {t.status.replace("_", " ")}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-mono text-[12px]" style={{ color: "#5A5A50" }}>
-                          {new Date(t.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <TransactionReviewPanel
+                transactions={txns}
+                demoMode={demoMode}
+                onReview={handlePaymentReview}
+              />
             </motion.div>
           )}
 

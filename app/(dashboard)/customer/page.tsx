@@ -396,7 +396,7 @@ export default function CustomerDashboard() {
                           </span>
                         </div>
                         <p className="font-serif" style={{ fontSize: "36px", color: "var(--color-cream)", lineHeight: 1 }}>{stat.value}</p>
-                        <p className="font-sans text-[13px] mt-1" style={{ color: "#5A5A50" }}>{stat.label}</p>
+                        <p className="font-sans text-[13px] mt-1" style={{ color: "rgba(242,237,223,0.45)" }}>{stat.label}</p>
                       </motion.div>
                     ))}
                   </div>
@@ -487,7 +487,7 @@ export default function CustomerDashboard() {
                         <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl pointer-events-none" style={{ background: "rgba(200,134,26,0.1)", transform: "translate(30%, -30%)" }} />
                         <p className="font-mono text-[11px] uppercase tracking-widest mb-1" style={{ color: "var(--color-ochre)" }}>Escrow Balance</p>
                         <p className="font-serif mb-1" style={{ fontSize: "40px", color: "var(--color-cream)" }}>₦{escrowTotal.toLocaleString()}</p>
-                        <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>
+                        <p className="font-sans text-[13px]" style={{ color: "rgba(242,237,223,0.45)" }}>
                           {escrow.length > 0 ? `Held for — ${escrow[0].job}` : "No funds in escrow"}
                         </p>
                       </div>
@@ -505,7 +505,7 @@ export default function CustomerDashboard() {
                       >
                         <div>
                           <p className="font-sans text-[14px] font-medium mb-0.5" style={{ color: "var(--color-cream)" }}>{p.job}</p>
-                          <p className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>{p.artisan} · {p.date}</p>
+                          <p className="font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.4)" }}>{p.artisan} · {p.date}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-mono text-[15px] font-semibold" style={{ color: "var(--color-cream)" }}>{p.amount}</p>
@@ -528,7 +528,7 @@ export default function CustomerDashboard() {
                         <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-serif text-[24px]" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>{initials}</div>
                         <div>
                           <h2 className="font-sans text-[18px] font-semibold" style={{ color: "var(--color-cream)" }}>{profile?.fullName ?? "—"}</h2>
-                          <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>{profile?.state ? `${profile.state}, Nigeria` : "Nigeria"}</p>
+                          <p className="font-sans text-[13px]" style={{ color: "rgba(242,237,223,0.45)" }}>{profile?.state ? `${profile.state}, Nigeria` : "Nigeria"}</p>
                         </div>
                       </div>
                       {[
@@ -538,7 +538,7 @@ export default function CustomerDashboard() {
                         { label: "Location", value: profile?.state ?? "Not set" },
                       ].map(field => (
                         <div key={field.label} className="flex items-center justify-between py-3 border-b" style={{ borderColor: "#1E1E1A" }}>
-                          <span className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>{field.label}</span>
+                          <span className="font-sans text-[13px]" style={{ color: "rgba(242,237,223,0.4)" }}>{field.label}</span>
                           <span className="font-sans text-[14px]" style={{ color: "var(--color-cream)" }}>{field.value}</span>
                         </div>
                       ))}
@@ -636,7 +636,7 @@ function SidebarContent({
           <div className="w-8 h-8 rounded-lg flex items-center justify-center font-sans text-[12px] font-semibold flex-shrink-0" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>{initials}</div>
           <div className="min-w-0">
             <p className="font-sans text-[13px] font-medium truncate" style={{ color: "var(--color-cream)" }}>{profile?.fullName ?? "Customer"}</p>
-            <p className="font-sans text-[11px] truncate" style={{ color: "#5A5A50" }}>{profile?.email ?? ""}</p>
+            <p className="font-sans text-[11px] truncate" style={{ color: "rgba(242,237,223,0.35)" }}>{profile?.email ?? ""}</p>
           </div>
         </div>
       </div>
@@ -663,18 +663,18 @@ function JobTable({ jobs }: { jobs: typeof JOBS }) {
               <div className="flex items-center gap-2 mb-1">
                 <p className="font-sans text-[14px] font-semibold truncate" style={{ color: "var(--color-cream)" }}>{job.title}</p>
                 {job.photos > 0 && (
-                  <span className="flex-shrink-0 flex items-center gap-1 font-mono text-[10px]" style={{ color: "#5A5A50" }}>
+                  <span className="flex-shrink-0 flex items-center gap-1 font-mono text-[10px]" style={{ color: "rgba(242,237,223,0.35)" }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                     {job.photos}
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>{job.category}</span>
-                <span style={{ color: "#2A2A25" }}>·</span>
-                <span className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>{job.location}</span>
-                <span style={{ color: "#2A2A25" }}>·</span>
-                <span className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>{job.posted}</span>
+                <span className="font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.5)" }}>{job.category}</span>
+                <span style={{ color: "rgba(242,237,223,0.15)" }}>·</span>
+                <span className="font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.5)" }}>{job.location}</span>
+                <span style={{ color: "rgba(242,237,223,0.15)" }}>·</span>
+                <span className="font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.35)" }}>{job.posted}</span>
               </div>
             </div>
             <div className="flex flex-col items-end gap-2 flex-shrink-0">
@@ -744,7 +744,7 @@ function BidCard({ bid, accepted, declined, onAccept, onDecline, showJobTitle = 
       )}
       <div className="p-5">
       {showJobTitle && !showCover && (
-        <p className="font-mono text-[10px] uppercase tracking-wider mb-3" style={{ color: "#5A5A50" }}>
+        <p className="font-mono text-[10px] uppercase tracking-wider mb-3" style={{ color: "rgba(242,237,223,0.35)" }}>
           Offer for: {bid.jobTitle}
         </p>
       )}
@@ -766,15 +766,15 @@ function BidCard({ bid, accepted, declined, onAccept, onDecline, showJobTitle = 
           </div>
           <div className="flex items-center gap-2">
             <Stars rating={bid.rating} />
-            <span className="font-sans text-[11px]" style={{ color: "#5A5A50" }}>({bid.reviews} reviews)</span>
+            <span className="font-sans text-[11px]" style={{ color: "rgba(242,237,223,0.35)" }}>({bid.reviews} reviews)</span>
           </div>
         </div>
         <div className="text-right flex-shrink-0">
           <p className="font-mono text-[17px] font-semibold" style={{ color: "var(--color-ochre)" }}>{bid.price}</p>
-          <p className="font-sans text-[11px]" style={{ color: "#5A5A50" }}>{bid.submitted}</p>
+          <p className="font-sans text-[11px]" style={{ color: "rgba(242,237,223,0.35)" }}>{bid.submitted}</p>
         </div>
       </div>
-      <p className="font-sans text-[13px] leading-relaxed mb-4" style={{ color: "#7A7A6A" }}>
+      <p className="font-sans text-[13px] leading-relaxed mb-4" style={{ color: "rgba(242,237,223,0.6)" }}>
         "{bid.message}"
       </p>
       {!accepted && !declined ? (
@@ -790,7 +790,7 @@ function BidCard({ bid, accepted, declined, onAccept, onDecline, showJobTitle = 
           <button
             onClick={onDecline}
             className="h-9 px-4 rounded-xl font-sans text-[13px] transition-all duration-200"
-            style={{ backgroundColor: "transparent", border: "1px solid #2A2A25", color: "#5A5A50" }}
+            style={{ backgroundColor: "transparent", border: "1px solid rgba(242,237,223,0.12)", color: "rgba(242,237,223,0.5)" }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(232,69,69,0.3)"; (e.currentTarget as HTMLButtonElement).style.color = "#E84545"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#2A2A25"; (e.currentTarget as HTMLButtonElement).style.color = "#5A5A50"; }}
           >

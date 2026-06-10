@@ -1,6 +1,7 @@
 /** Sample data for admin demo / exploration mode */
 
 import type { ArtisanVerificationRow } from "@/lib/supabase/verification";
+import type { TransactionWithCompletion } from "@/lib/supabase/completions";
 
 export interface DemoAdminUser {
   id: string;
@@ -21,18 +22,13 @@ export interface DemoAdminJob {
   budget_amount: number | null;
 }
 
-export interface DemoAdminTxn {
-  id: string;
-  amount: number;
-  status: string;
-  created_at: string;
-  reference: string;
-}
-
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
 
-const DEMO_ID_IMG = "https://images.unsplash.com/photo-1554224311-beee415c201f?w=800&q=80";
-const DEMO_FACE_IMG = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80";
+/** Sample NIN slip scan (public OCR test fixture) + face crop from same document */
+const DEMO_ID_IMG = "/demo-nin-slip-full.jpg";
+const DEMO_FACE_IMG = "/demo-nin-face.jpg";
+const DEMO_PROOF_1 = "/Image%20client.jpg";
+const DEMO_PROOF_2 = "/Image%20client%202.jpg";
 
 export const DEMO_ADMIN_USERS: DemoAdminUser[] = [
   { id: "du1", full_name: "Adaeze Obi", role: "customer", state: "Lagos", trade: null, created_at: daysAgo(45) },
@@ -56,12 +52,140 @@ export const DEMO_ADMIN_JOBS: DemoAdminJob[] = [
   { id: "dj6", title: "Deep clean 3-bedroom apartment", category: "Cleaning Professional", state: "Lagos", status: "open", created_at: daysAgo(2), budget_amount: 25000 },
 ];
 
-export const DEMO_ADMIN_TXNS: DemoAdminTxn[] = [
-  { id: "dt1", amount: 18000, status: "paid", created_at: daysAgo(25), reference: "FXR-TXN-20260525001" },
-  { id: "dt2", amount: 65000, status: "paid", created_at: daysAgo(40), reference: "FXR-TXN-20260510002" },
-  { id: "dt3", amount: 45000, status: "in_escrow", created_at: daysAgo(3), reference: "FXR-TXN-20260607003" },
-  { id: "dt4", amount: 22000, status: "paid", created_at: daysAgo(55), reference: "FXR-TXN-20260418004" },
-  { id: "dt5", amount: 85000, status: "in_escrow", created_at: daysAgo(1), reference: "FXR-TXN-20260609005" },
+export const DEMO_ADMIN_TXNS: TransactionWithCompletion[] = [
+  {
+    id: "dt1",
+    bid_id: "db1",
+    job_id: "dj5",
+    customer_id: "du1",
+    artisan_id: "du2",
+    amount: 18000,
+    reference: "FXR-TXN-20260525001",
+    status: "paid",
+    created_at: daysAgo(25),
+    released_at: daysAgo(24),
+    admin_notes: "Work verified — fans installed and tested.",
+    job: { title: "Install ceiling fans x3" },
+    artisan: { full_name: "Emeka Okafor" },
+    customer: { full_name: "Adaeze Obi" },
+    completion: {
+      id: "dc1",
+      job_id: "dj5",
+      bid_id: "db1",
+      artisan_id: "du2",
+      transaction_id: "dt1",
+      notes: "Installed 3 ceiling fans in living room and bedrooms. All tested and balanced.",
+      photo_urls: [DEMO_PROOF_1, DEMO_PROOF_2],
+      status: "approved",
+      submitted_at: daysAgo(26),
+      reviewed_at: daysAgo(25),
+      admin_notes: "Photos match job description.",
+    },
+  },
+  {
+    id: "dt2",
+    bid_id: "db2",
+    job_id: "dj2",
+    customer_id: "du8",
+    artisan_id: "du3",
+    amount: 65000,
+    reference: "FXR-TXN-20260510002",
+    status: "paid",
+    created_at: daysAgo(40),
+    released_at: daysAgo(39),
+    admin_notes: "Painting completed to standard.",
+    job: { title: "Paint 3-bedroom flat" },
+    artisan: { full_name: "Tunde Adeyemi" },
+    customer: { full_name: "Ngozi Anozie" },
+    completion: {
+      id: "dc2",
+      job_id: "dj2",
+      bid_id: "db2",
+      artisan_id: "du3",
+      transaction_id: "dt2",
+      notes: "Full interior repaint — walls, ceilings, and trim. Two coats applied.",
+      photo_urls: [DEMO_PROOF_2],
+      status: "approved",
+      submitted_at: daysAgo(41),
+      reviewed_at: daysAgo(40),
+      admin_notes: null,
+    },
+  },
+  {
+    id: "dt3",
+    bid_id: "db3",
+    job_id: "dj3",
+    customer_id: "du1",
+    artisan_id: "du7",
+    amount: 45000,
+    reference: "FXR-TXN-20260607003",
+    status: "proof_submitted",
+    created_at: daysAgo(3),
+    released_at: null,
+    admin_notes: null,
+    job: { title: "Install split AC unit" },
+    artisan: { full_name: "Yusuf Bello" },
+    customer: { full_name: "Adaeze Obi" },
+    completion: {
+      id: "dc3",
+      job_id: "dj3",
+      bid_id: "db3",
+      artisan_id: "du7",
+      transaction_id: "dt3",
+      notes: "Split unit mounted, piped, and commissioned. Customer signed off on cooling test.",
+      photo_urls: [DEMO_PROOF_1, DEMO_PROOF_2],
+      status: "submitted",
+      submitted_at: daysAgo(0),
+      reviewed_at: null,
+      admin_notes: null,
+    },
+  },
+  {
+    id: "dt4",
+    bid_id: "db4",
+    job_id: "dj1",
+    customer_id: "du5",
+    artisan_id: "du10",
+    amount: 22000,
+    reference: "FXR-TXN-20260418004",
+    status: "paid",
+    created_at: daysAgo(55),
+    released_at: daysAgo(54),
+    admin_notes: null,
+    job: { title: "Fix leaking kitchen pipe" },
+    artisan: { full_name: "Suleiman Musa" },
+    customer: { full_name: "Demo Client" },
+    completion: {
+      id: "dc4",
+      job_id: "dj1",
+      bid_id: "db4",
+      artisan_id: "du10",
+      transaction_id: "dt4",
+      notes: "Replaced faulty joint under sink. No leaks after pressure test.",
+      photo_urls: [DEMO_PROOF_1],
+      status: "approved",
+      submitted_at: daysAgo(56),
+      reviewed_at: daysAgo(55),
+      admin_notes: null,
+    },
+  },
+  {
+    id: "dt5",
+    bid_id: "db5",
+    job_id: "dj6",
+    customer_id: "du1",
+    artisan_id: "du6",
+    amount: 85000,
+    reference: "FXR-TXN-20260609005",
+    status: "in_escrow",
+    created_at: daysAgo(1),
+    released_at: null,
+    admin_notes: null,
+    job: { title: "Deep clean 3-bedroom apartment" },
+    artisan: { full_name: "Demo Artisan" },
+    customer: { full_name: "Adaeze Obi" },
+    completion: null,
+  },
 ];
 
 export const DEMO_ADMIN_VERIFICATIONS: ArtisanVerificationRow[] = [
