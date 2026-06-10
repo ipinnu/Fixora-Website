@@ -5,13 +5,17 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { getDemoSession } from "@/lib/demo-session";
+import { clearDemoSession, getDemoSession } from "@/lib/demo-session";
+import {
+  loadDemoAdminData,
+  type DemoAdminJob,
+  type DemoAdminTxn,
+  type DemoAdminUser,
+} from "@/lib/demo-admin";
+import VerificationReviewPanel from "@/components/admin/VerificationReviewPanel";
+import { fetchAllVerifications, reviewVerification, type ArtisanVerificationRow } from "@/lib/supabase/verification";
 
 const ADMIN_EMAIL = "ipinnu.oladipo23@gmail.com";
-
-interface User { id: string; full_name: string | null; role: string | null; state: string | null; trade: string | null; created_at: string; }
-interface Job { id: string; title: string; category: string; state: string; status: string; created_at: string; budget_amount: number | null; }
-interface Txn { id: string; amount: number; status: string; created_at: string; reference: string; }
 
 const TABS = [
   { id: "users", label: "Users", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
@@ -32,13 +36,16 @@ function StatCard({ label, value, accent }: { label: string; value: string; acce
 export default function AdminPage() {
   const router = useRouter();
   const [tab, setTab] = useState("users");
-  const [users, setUsers] = useState<User[]>([]);
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [txns, setTxns] = useState<Txn[]>([]);
+  const [users, setUsers] = useState<DemoAdminUser[]>([]);
+  const [jobs, setJobs] = useState<DemoAdminJob[]>([]);
+  const [txns, setTxns] = useState<DemoAdminTxn[]>([]);
+  const [verifications, setVerifications] = useState<ArtisanVerificationRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
     if (getDemoSession() === "admin") {
+      setDemoMode(true);
       setLoading(false);
       return;
     }
@@ -50,17 +57,36 @@ export default function AdminPage() {
     });
   }, [router]);
 
+  const loadDemo = useCallback(() => {
+    const data = loadDemoAdminData();
+    setUsers(data.users);
+    setJobs(data.jobs);
+    setTxns(data.txns);
+    setVerifications(data.verifications);
+  }, []);
+
   const load = useCallback(async () => {
+    if (demoMode) {
+      loadDemo();
+      return;
+    }
     const supabase = createClient();
     const [{ data: u }, { data: j }, { data: t }] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("jobs").select("id, title, category, state, status, created_at, budget_amount").order("created_at", { ascending: false }),
       supabase.from("transactions").select("*").order("created_at", { ascending: false }),
     ]);
-    setUsers((u ?? []) as User[]);
-    setJobs((j ?? []) as Job[]);
-    setTxns((t ?? []) as Txn[]);
-  }, []);
+    setUsers((u ?? []) as DemoAdminUser[]);
+    setJobs((j ?? []) as DemoAdminJob[]);
+    setTxns((t ?? []) as DemoAdminTxn[]);
+    const rows = await fetchAllVerifications();
+    setVerifications(rows);
+  }, [demoMode, loadDemo]);
+
+  const handleReview = async (id: string, artisanId: string, decision: "approved" | "rejected", notes?: string) => {
+    const { error } = await reviewVerification(id, artisanId, decision, notes);
+    if (!error) await load();
+  };
 
   useEffect(() => { if (!loading) load(); }, [loading, load]);
 
@@ -83,6 +109,23 @@ export default function AdminPage() {
           <span className="font-sans text-[11px] rounded-full px-2.5 py-1 font-semibold" style={{ backgroundColor: "rgba(232,69,69,0.1)", color: "#E84545", border: "1px solid rgba(232,69,69,0.2)" }}>Admin</span>
         </div>
         <div className="flex items-center gap-3">
+          {demoMode && (
+            <span className="font-sans text-[11px] rounded-full px-2.5 py-1 font-semibold" style={{ backgroundColor: "rgba(200,134,26,0.12)", color: "var(--color-ochre)", border: "1px solid rgba(200,134,26,0.25)" }}>
+              Demo data
+            </span>
+          )}
+          {demoMode && (
+            <Link
+              href="/login"
+              onClick={() => clearDemoSession()}
+              className="font-sans text-[12px] h-8 px-3 rounded-lg transition-colors"
+              style={{ backgroundColor: "#1B1B17", border: "1px solid #2A2A25", color: "#5A5A50" }}
+              onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--color-cream)")}
+              onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = "#5A5A50")}
+            >
+              Exit demo
+            </Link>
+          )}
           <button onClick={load} className="font-sans text-[12px] h-8 px-3 rounded-lg transition-colors" style={{ backgroundColor: "#1B1B17", border: "1px solid #2A2A25", color: "#5A5A50" }}
             onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "var(--color-cream)")}
             onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "#5A5A50")}>
@@ -90,6 +133,14 @@ export default function AdminPage() {
           </button>
         </div>
       </div>
+
+      {demoMode && (
+        <div className="flex items-center justify-between px-6 lg:px-10 py-2.5 text-[12px] font-sans" style={{ backgroundColor: "rgba(200,134,26,0.07)", borderBottom: "1px solid rgba(200,134,26,0.12)" }}>
+          <span style={{ color: "var(--color-ochre)" }}>
+            ✦ Showing sample platform data for exploration — stats, users, jobs, transactions, and verifications are demo only
+          </span>
+        </div>
+      )}
 
       <div className="px-6 lg:px-10 py-8">
         {/* Stats */}
@@ -222,12 +273,11 @@ export default function AdminPage() {
 
           {tab === "verifications" && (
             <motion.div key="verifications" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <div className="rounded-2xl p-10 text-center" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
-                <p className="font-sans text-[14px] mb-2" style={{ color: "var(--color-cream)" }}>Verification queue</p>
-                <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>
-                  Artisans who have submitted ID documents for verification will appear here. This feature requires ID upload in the artisan profile flow.
-                </p>
-              </div>
+              <VerificationReviewPanel
+                verifications={verifications}
+                demoMode={demoMode}
+                onReview={handleReview}
+              />
             </motion.div>
           )}
         </AnimatePresence>

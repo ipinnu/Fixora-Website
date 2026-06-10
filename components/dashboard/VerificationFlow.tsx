@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import CategorySelect from "@/components/CategorySelect";
+import { submitArtisanVerification } from "@/lib/supabase/verification";
 
 type Step = "intro" | "nin" | "face" | "profile" | "done";
 
@@ -32,7 +33,10 @@ export default function VerificationFlow({ onComplete, onClose }: Props) {
   const [step, setStep] = useState<Step>("intro");
   const [nin, setNin] = useState("");
   const [idFile, setIdFile] = useState<File | null>(null);
+  const [faceFile, setFaceFile] = useState<File | null>(null);
   const [scanState, setScanState] = useState<"idle" | "scanning" | "done">("idle");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [scanCountdown, setScanCountdown] = useState(3);
   const [profile, setProfile] = useState<ProfileData>({
     trade: "",
@@ -72,6 +76,28 @@ export default function VerificationFlow({ onComplete, onClose }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
+  function captureFacePhoto(): Promise<File | null> {
+    const video = videoRef.current;
+    if (!video || video.videoWidth === 0) return Promise.resolve(null);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return Promise.resolve(null);
+
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0);
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (!blob) { resolve(null); return; }
+        resolve(new File([blob], "face.jpg", { type: "image/jpeg" }));
+      }, "image/jpeg", 0.85);
+    });
+  }
+
   function beginScan() {
     setScanState("scanning");
     setScanCountdown(3);
@@ -81,9 +107,25 @@ export default function VerificationFlow({ onComplete, onClose }: Props) {
       setScanCountdown(count);
       if (count <= 0) {
         clearInterval(interval);
-        setScanState("done");
+        captureFacePhoto().then((file) => {
+          if (file) setFaceFile(file);
+          setScanState("done");
+        });
       }
     }, 1000);
+  }
+
+  async function handleSubmit() {
+    if (!idFile) return;
+    setSubmitting(true);
+    setSubmitError("");
+    const { error } = await submitArtisanVerification(nin, idFile, faceFile, profile);
+    setSubmitting(false);
+    if (error) {
+      setSubmitError(error);
+      return;
+    }
+    setStep("done");
   }
 
   const ninValid = /^\d{11}$/.test(nin);
@@ -158,7 +200,7 @@ export default function VerificationFlow({ onComplete, onClose }: Props) {
                 <div className="flex flex-col gap-3 mb-8">
                   {[
                     { icon: "🪪", title: "NIN Verification", desc: "Your National Identification Number + a photo of your ID" },
-                    { icon: "📷", title: "Live Face Scan", desc: "A quick selfie check to match your face to your ID" },
+                    { icon: "📷", title: "Selfie Photo", desc: "A live selfie our team compares with your ID during review" },
                     { icon: "📋", title: "Profile Setup", desc: "Tell customers about your trade, experience and service area" },
                   ].map(item => (
                     <div key={item.title} className="flex items-start gap-4 rounded-xl p-4" style={{ backgroundColor: "#131310", border: "1px solid #1E1E1A" }}>
@@ -243,9 +285,9 @@ export default function VerificationFlow({ onComplete, onClose }: Props) {
 
             {step === "face" && (
               <StepPanel key="face">
-                <h2 className="font-serif text-[22px] mb-1" style={{ color: "var(--color-cream)" }}>Live Face Scan</h2>
+                <h2 className="font-serif text-[22px] mb-1" style={{ color: "var(--color-cream)" }}>Selfie Photo</h2>
                 <p className="font-sans text-[13px] mb-5" style={{ color: "#5A5A50" }}>
-                  Position your face in the frame and stay still. We'll take a quick liveness check to match you to your ID.
+                  Position your face in the frame and stay still. An admin will compare this photo with your ID document by hand.
                 </p>
 
                 <div className="relative rounded-2xl overflow-hidden mb-5" style={{ aspectRatio: "4/3", backgroundColor: "#0D0D0B", border: "1px solid #2A2A25" }}>
@@ -306,7 +348,7 @@ export default function VerificationFlow({ onComplete, onClose }: Props) {
                           >
                             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2ECC6A" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
                           </motion.div>
-                          <p className="font-sans text-[14px] font-semibold" style={{ color: "#2ECC6A" }}>Face verified</p>
+                          <p className="font-sans text-[14px] font-semibold" style={{ color: "#2ECC6A" }}>Photo captured</p>
                         </div>
                       )}
                     </>
@@ -444,11 +486,17 @@ export default function VerificationFlow({ onComplete, onClose }: Props) {
                   </div>
                 </Field>
 
+                {submitError && (
+                  <p className="font-sans text-[13px] mb-4 rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(232,69,69,0.08)", color: "#E84545", border: "1px solid rgba(232,69,69,0.2)" }}>
+                    {submitError}
+                  </p>
+                )}
+
                 <PrimaryButton
-                  onClick={() => setStep("done")}
-                  disabled={!profileValid}
+                  onClick={handleSubmit}
+                  disabled={!profileValid || submitting}
                 >
-                  Submit for Review
+                  {submitting ? "Submitting…" : "Submit for Review"}
                 </PrimaryButton>
               </StepPanel>
             )}
@@ -468,18 +516,18 @@ export default function VerificationFlow({ onComplete, onClose }: Props) {
 
                   <h2 className="font-serif text-[26px] mb-3" style={{ color: "var(--color-cream)" }}>You're all set!</h2>
                   <p className="font-sans text-[14px] leading-relaxed mb-2" style={{ color: "#5A5A50" }}>
-                    Your verification has been submitted. We typically review applications within <strong style={{ color: "var(--color-cream)" }}>24–48 hours</strong>.
+                    Your documents have been submitted. Our team will manually review your NIN and photos — usually within <strong style={{ color: "var(--color-cream)" }}>24–48 hours</strong>.
                   </p>
                   <p className="font-sans text-[13px] leading-relaxed mb-8" style={{ color: "#3A3A30" }}>
-                    You'll be notified once you're approved and can start bidding on jobs.
+                    You'll be notified once an admin approves your application and you can start bidding on jobs.
                   </p>
 
                   <div className="rounded-xl p-4 mb-8 text-left" style={{ backgroundColor: "#131310", border: "1px solid #1E1E1A" }}>
                     <p className="font-sans text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: "#5A5A50" }}>What happens next</p>
                     {[
-                      "We verify your NIN against the NIMC database",
-                      "Our team reviews your face scan for a match",
-                      "Your profile goes live and you can start getting hired",
+                      "An admin reviews your NIN number and government ID photo",
+                      "They compare your selfie with your ID document by hand",
+                      "Once approved, your profile goes live and you can start getting hired",
                     ].map((item, i) => (
                       <div key={i} className="flex items-start gap-3 mb-2 last:mb-0">
                         <span className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 font-mono text-[10px] font-bold mt-0.5"

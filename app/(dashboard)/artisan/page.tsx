@@ -10,6 +10,7 @@ import NotificationBell from "@/components/dashboard/NotificationBell";
 import DemoToggle from "@/components/dashboard/DemoToggle";
 import MobileNav from "@/components/dashboard/MobileNav";
 import VerificationFlow from "@/components/dashboard/VerificationFlow";
+import { fetchArtisanVerificationStatus, type VerificationStatus } from "@/lib/supabase/verification";
 import { getDemoSession } from "@/lib/demo-session";
 import { getFilterGroupOptions, matchesCategoryFilter } from "@/lib/categories";
 
@@ -201,6 +202,11 @@ export default function ArtisanDashboard() {
     if (!demoMode && userId) loadLiveData();
   }, [demoMode, userId, loadLiveData]);
 
+  useEffect(() => {
+    if (demoMode || !userId) return;
+    fetchArtisanVerificationStatus().then(setVerificationStatus);
+  }, [demoMode, userId]);
+
   const displayJobs = demoMode ? AVAILABLE_JOBS : liveJobs;
   const displayMyBids = demoMode ? MY_BIDS : liveMyBids;
   const displayActiveJobs = demoMode ? ACTIVE_JOBS : liveActiveJobs;
@@ -212,7 +218,7 @@ export default function ArtisanDashboard() {
 
   const visibleJobs = catFilter === "All" ? displayJobs : displayJobs.filter(j => matchesCategoryFilter(j.category, catFilter));
 
-  const [verificationStatus, setVerificationStatus] = useState<"unverified" | "pending" | "verified">("unverified");
+  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("unverified");
   const [showVerification, setShowVerification] = useState(false);
   const [bidError, setBidError] = useState("");
   const [bidMessages, setBidMessages] = useState<Record<string, string>>({});
@@ -411,12 +417,12 @@ export default function ArtisanDashboard() {
                       Under Review
                     </span>
                   )}
-                  {verificationStatus === "unverified" && (
+                  {(verificationStatus === "unverified" || verificationStatus === "rejected") && (
                     <button onClick={() => setShowVerification(true)}
                       className="flex items-center gap-1 font-mono text-[10px] transition-opacity hover:opacity-80"
-                      style={{ color: "#E84545" }}>
+                      style={{ color: verificationStatus === "rejected" ? "#E84545" : "#E84545" }}>
                       <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#E84545" }} />
-                      Not Verified
+                      {verificationStatus === "rejected" ? "Rejected — Resubmit" : "Not Verified"}
                     </button>
                   )}
                 </div>
@@ -451,6 +457,30 @@ export default function ArtisanDashboard() {
 
           {/* Go Live banner */}
           <AnimatePresence>
+            {verificationStatus === "rejected" && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex items-center justify-between px-6 lg:px-10 py-3 gap-4"
+                style={{ backgroundColor: "rgba(232,69,69,0.06)", borderBottom: "1px solid rgba(232,69,69,0.12)" }}
+              >
+                <div className="flex items-center gap-2.5">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E84545" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  <span className="font-sans text-[12px]" style={{ color: "#E84545" }}>
+                    Verification was <strong>not approved</strong> — please resubmit your NIN and ID photos.
+                  </span>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  onClick={() => setShowVerification(true)}
+                  className="flex-shrink-0 h-8 px-4 rounded-lg font-sans text-[12px] font-semibold"
+                  style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}
+                >
+                  Resubmit →
+                </motion.button>
+              </motion.div>
+            )}
             {verificationStatus === "unverified" && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -524,22 +554,24 @@ export default function ArtisanDashboard() {
               {tab === "overview" && (
                 <motion.div key="overview" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
                   {/* Verification prompt card */}
-                  {verificationStatus === "unverified" && (
+                  {(verificationStatus === "unverified" || verificationStatus === "rejected") && (
                     <motion.div
                       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                       className="rounded-2xl p-5 mb-6 flex items-center justify-between gap-4"
-                      style={{ background: "linear-gradient(135deg, rgba(200,134,26,0.1) 0%, rgba(200,134,26,0.03) 100%)", border: "1px solid rgba(200,134,26,0.2)" }}
+                      style={{ background: verificationStatus === "rejected" ? "linear-gradient(135deg, rgba(232,69,69,0.08) 0%, rgba(232,69,69,0.02) 100%)" : "linear-gradient(135deg, rgba(200,134,26,0.1) 0%, rgba(200,134,26,0.03) 100%)", border: verificationStatus === "rejected" ? "1px solid rgba(232,69,69,0.2)" : "1px solid rgba(200,134,26,0.2)" }}
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: "rgba(200,134,26,0.12)", border: "1px solid rgba(200,134,26,0.2)" }}>
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-ochre)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          style={{ backgroundColor: verificationStatus === "rejected" ? "rgba(232,69,69,0.1)" : "rgba(200,134,26,0.12)", border: verificationStatus === "rejected" ? "1px solid rgba(232,69,69,0.2)" : "1px solid rgba(200,134,26,0.2)" }}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={verificationStatus === "rejected" ? "#E84545" : "var(--color-ochre)"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                           </svg>
                         </div>
                         <div>
-                          <p className="font-sans text-[14px] font-semibold mb-0.5" style={{ color: "var(--color-cream)" }}>Verify your account to go live</p>
-                          <p className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>Takes ~3 minutes · NIN + face scan + profile setup</p>
+                          <p className="font-sans text-[14px] font-semibold mb-0.5" style={{ color: "var(--color-cream)" }}>
+                            {verificationStatus === "rejected" ? "Resubmit your verification" : "Verify your account to go live"}
+                          </p>
+                          <p className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>Takes ~3 minutes · NIN + ID photo + selfie for manual review</p>
                         </div>
                       </div>
                       <motion.button
@@ -767,12 +799,12 @@ export default function ArtisanDashboard() {
                             Under Review
                           </div>
                         )}
-                        {verificationStatus === "unverified" && (
+                        {(verificationStatus === "unverified" || verificationStatus === "rejected") && (
                           <button onClick={() => setShowVerification(true)}
                             className="ml-auto flex items-center gap-1.5 font-sans text-[12px] rounded-full px-3 py-1 transition-opacity hover:opacity-80"
                             style={{ backgroundColor: "rgba(232,69,69,0.08)", color: "#E84545", border: "1px solid rgba(232,69,69,0.15)" }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                            Verify Now
+                            {verificationStatus === "rejected" ? "Resubmit" : "Verify Now"}
                           </button>
                         )}
                       </div>
@@ -807,7 +839,11 @@ export default function ArtisanDashboard() {
       <AnimatePresence>
         {showVerification && (
           <VerificationFlow
-            onComplete={() => { setVerificationStatus("pending"); setShowVerification(false); }}
+            onComplete={() => {
+              setVerificationStatus("pending");
+              setShowVerification(false);
+              if (!demoMode) fetchArtisanVerificationStatus().then(setVerificationStatus);
+            }}
             onClose={() => setShowVerification(false)}
           />
         )}
