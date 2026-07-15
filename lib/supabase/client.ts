@@ -20,15 +20,15 @@ function recoverInvalidSession(client: ReturnType<typeof createBrowserClient>) {
   if (typeof window === "undefined" || sessionRecoveryStarted) return;
   sessionRecoveryStarted = true;
 
-  void client.auth
-    .getUser()
-    .then(async (result) => {
-      if (!isInvalidRefreshTokenError(result.error)) return;
+  void (async () => {
+    try {
+      const { error } = await client.auth.getUser();
+      if (!isInvalidRefreshTokenError(error)) return;
       await client.auth.signOut({ scope: "local" });
-    })
-    .catch(async () => {
+    } catch {
       await client.auth.signOut({ scope: "local" });
-    });
+    }
+  })();
 }
 
 export function createClient() {
