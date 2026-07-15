@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Instrument_Serif, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import GrainOverlay from "@/components/shared/GrainOverlay";
 
 const instrumentSerif = Instrument_Serif({
   variable: "--font-instrument-serif",
@@ -53,8 +52,10 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${instrumentSerif.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
     >
-      <body className="min-h-screen flex flex-col">
+      {/* suppressHydrationWarning: browser extensions (e.g. Grammarly) inject body attributes */}
+      <body className="min-h-screen flex flex-col" suppressHydrationWarning>
         {children}
       </body>
     </html>

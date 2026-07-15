@@ -79,14 +79,49 @@ const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> =
   declined: { label: "Declined", color: "#E84545", bg: "rgba(232,69,69,0.08)" },
 };
 
+type ArtisanProfile = {
+  fullName: string;
+  trade: string;
+  state: string;
+  phone: string;
+  bio: string;
+  createdAt: string | null;
+};
+
+const DEMO_PROFILE: ArtisanProfile = {
+  fullName: "Emeka Okafor",
+  trade: "Plumbing & General Repairs",
+  state: "Lagos",
+  phone: "+234 802 345 6789",
+  bio: "",
+  createdAt: "2025-01-15T00:00:00.000Z",
+};
+
 const NAV = [
   { id: "overview",  label: "Overview",    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> },
   { id: "browse",    label: "Browse Jobs", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
   { id: "mybids",    label: "My Bids",     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> },
-  { id: "active",    label: "Active Jobs", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>, badge: ACTIVE_JOBS.length },
+  { id: "active",    label: "Active Jobs", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
   { id: "earnings",  label: "Earnings",    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
   { id: "profile",   label: "Profile",     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
 ];
+
+function initialsFromName(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "A";
+}
+
+function greetingForHour() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -106,27 +141,57 @@ export default function ArtisanDashboard() {
   const [tab, setTab] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [demoMode, setDemoMode] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
+  const [profile, setProfile] = useState<ArtisanProfile>(DEMO_PROFILE);
+  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("unverified");
   const [liveJobs, setLiveJobs] = useState<typeof AVAILABLE_JOBS>([]);
   const [liveMyBids, setLiveMyBids] = useState<typeof MY_BIDS>([]);
   const [liveTransactions, setLiveTransactions] = useState<typeof TRANSACTIONS>([]);
   const [liveActiveJobs, setLiveActiveJobs] = useState<ActiveJob[]>([]);
   const [demoActiveJobs, setDemoActiveJobs] = useState<ActiveJob[]>(ACTIVE_JOBS);
   const [liveLoading, setLiveLoading] = useState(false);
+  const [catFilter, setCatFilter] = useState("All");
+  const [submittedBids, setSubmittedBids] = useState<Record<string, string>>({});
+  const [bidInputs, setBidInputs] = useState<Record<string, string>>({});
+  const [showBidModal, setShowBidModal] = useState<string | null>(null);
+  const [showVerification, setShowVerification] = useState(false);
+  const [proofJob, setProofJob] = useState<{ jobId: string; bidId: string; title: string } | null>(null);
+  const [bidError, setBidError] = useState("");
+  const [bidMessages, setBidMessages] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const demoRole = getDemoSession();
-    if (demoRole === "artisan") return;
+    if (demoRole === "artisan") {
+      setDemoMode(true);
+      setProfile(DEMO_PROFILE);
+      return;
+    }
     if (demoRole === "customer") { router.replace("/customer"); return; }
     if (demoRole === "admin") { router.replace("/admin"); return; }
 
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace("/login"); return; }
-      const { data: profile } = await supabase
-        .from("profiles").select("role").eq("id", user.id).single();
-      if (profile?.role === "customer") { router.replace("/customer"); return; }
+      const { data: row } = await supabase
+        .from("profiles")
+        .select("role, full_name, trade, state, phone, bio, created_at, verification_status")
+        .eq("id", user.id)
+        .single();
+      if (row?.role === "customer") { router.replace("/customer"); return; }
+
       setUserId(user.id);
+      setDemoMode(false);
+      setProfile({
+        fullName: row?.full_name || user.email || "Artisan",
+        trade: row?.trade || "Not set",
+        state: row?.state || "—",
+        phone: row?.phone || "—",
+        bio: row?.bio || "",
+        createdAt: row?.created_at ?? null,
+      });
+      if (row?.verification_status) {
+        setVerificationStatus(row.verification_status as VerificationStatus);
+      }
     });
   }, [router]);
 
@@ -256,18 +321,10 @@ export default function ArtisanDashboard() {
   const displayMyBids = demoMode ? MY_BIDS : liveMyBids;
   const displayActiveJobs = demoMode ? demoActiveJobs : liveActiveJobs;
   const displayTransactions = demoMode ? TRANSACTIONS : liveTransactions;
-  const [catFilter, setCatFilter] = useState("All");
-  const [submittedBids, setSubmittedBids] = useState<Record<string, string>>({});
-  const [bidInputs, setBidInputs] = useState<Record<string, string>>({});
-  const [showBidModal, setShowBidModal] = useState<string | null>(null);
-
+  const displayProfile = demoMode ? DEMO_PROFILE : profile;
+  const firstName = displayProfile.fullName.split(" ")[0] || "Artisan";
+  const profileInitials = initialsFromName(displayProfile.fullName);
   const visibleJobs = catFilter === "All" ? displayJobs : displayJobs.filter(j => matchesCategoryFilter(j.category, catFilter));
-
-  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("unverified");
-  const [showVerification, setShowVerification] = useState(false);
-  const [proofJob, setProofJob] = useState<{ jobId: string; bidId: string; title: string } | null>(null);
-  const [bidError, setBidError] = useState("");
-  const [bidMessages, setBidMessages] = useState<Record<string, string>>({});
 
   const submitBid = async (jobId: string) => {
     const amount = bidInputs[jobId] || "";
@@ -302,13 +359,25 @@ export default function ArtisanDashboard() {
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           style={{ background: "linear-gradient(180deg, #0F0E0C 0%, #0A0A08 100%)", borderRight: "1px solid #1E1E1A" }}
         >
-          <SidebarContent tab={tab} setTab={setTab} setSidebarOpen={setSidebarOpen} />
+          <SidebarContent
+            tab={tab}
+            setTab={setTab}
+            setSidebarOpen={setSidebarOpen}
+            profile={displayProfile}
+            activeJobCount={displayActiveJobs.length}
+          />
         </motion.aside>
 
         <aside className="hidden lg:flex flex-col w-64 flex-shrink-0"
           style={{ position: "sticky", top: 0, height: "100vh", background: "linear-gradient(180deg, #0F0E0C 0%, #0A0A08 100%)", borderRight: "1px solid #1E1E1A" }}
         >
-          <SidebarContent tab={tab} setTab={setTab} setSidebarOpen={setSidebarOpen} />
+          <SidebarContent
+            tab={tab}
+            setTab={setTab}
+            setSidebarOpen={setSidebarOpen}
+            profile={displayProfile}
+            activeJobCount={displayActiveJobs.length}
+          />
         </aside>
       </>
 
@@ -436,7 +505,7 @@ export default function ArtisanDashboard() {
             </svg>
           </button>
           <span className="font-serif text-[18px]" style={{ color: "var(--color-ochre)" }}>FIXORA</span>
-          <div className="w-9 h-9 rounded-full flex items-center justify-center font-sans text-[13px] font-semibold" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>EO</div>
+          <div className="w-9 h-9 rounded-full flex items-center justify-center font-sans text-[13px] font-semibold" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>{profileInitials}</div>
         </div>
 
         <div className="flex-1 overflow-auto">
@@ -473,13 +542,18 @@ export default function ArtisanDashboard() {
                   )}
                 </div>
                 <h1 className="font-serif" style={{ fontSize: "clamp(22px, 3vw, 32px)", color: "var(--color-cream)" }}>
-                  {tab === "overview" ? "Good morning, Emeka" : NAV.find(n => n.id === tab)?.label}
+                  {tab === "overview" ? `${greetingForHour()}, ${firstName}` : NAV.find(n => n.id === tab)?.label}
                 </h1>
                 {tab === "overview" && (
-                  <div className="flex items-center gap-2 mt-1">
-                    <Stars rating={4.8} />
-                    <span className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>· 127 reviews · 42 jobs completed</span>
-                  </div>
+                  <p className="font-sans text-[13px] mt-1" style={{ color: "#5A5A50" }}>
+                    {displayProfile.trade} · {displayProfile.state}
+                    {demoMode && (
+                      <span className="ml-2">
+                        <Stars rating={4.8} />
+                        <span className="ml-1">· 127 reviews · 42 jobs completed</span>
+                      </span>
+                    )}
+                  </p>
                 )}
               </div>
               <div className="hidden sm:flex items-center gap-3">
@@ -501,9 +575,9 @@ export default function ArtisanDashboard() {
             </div>
           </div>
 
-          {/* Go Live banner */}
+          {/* Verification banners — omitted on overview (card covers it there) */}
           <AnimatePresence>
-            {verificationStatus === "rejected" && (
+            {tab !== "overview" && verificationStatus === "rejected" && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -527,7 +601,7 @@ export default function ArtisanDashboard() {
                 </motion.button>
               </motion.div>
             )}
-            {verificationStatus === "unverified" && (
+            {tab !== "overview" && verificationStatus === "unverified" && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -547,11 +621,11 @@ export default function ArtisanDashboard() {
                   className="flex-shrink-0 h-8 px-4 rounded-lg font-sans text-[12px] font-semibold"
                   style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}
                 >
-                  Go Live →
+                  Get Verified →
                 </motion.button>
               </motion.div>
             )}
-            {verificationStatus === "pending" && (
+            {tab !== "overview" && verificationStatus === "pending" && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -561,7 +635,7 @@ export default function ArtisanDashboard() {
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-ochre)" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 <span className="font-sans text-[12px]" style={{ color: "var(--color-ochre)" }}>
-                  Verification submitted — we'll notify you within <strong>24–48 hours</strong> once your account is approved.
+                  Verification submitted — an admin will review within <strong>24–48 hours</strong>.
                 </span>
               </motion.div>
             )}
@@ -617,7 +691,7 @@ export default function ArtisanDashboard() {
                           <p className="font-sans text-[14px] font-semibold mb-0.5" style={{ color: "var(--color-cream)" }}>
                             {verificationStatus === "rejected" ? "Resubmit your verification" : "Verify your account to go live"}
                           </p>
-                          <p className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>Takes ~3 minutes · NIN + ID photo + selfie for manual review</p>
+                          <p className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>Takes ~3 minutes · NIN + ID photo + selfie · admin reviews before you go live</p>
                         </div>
                       </div>
                       <motion.button
@@ -661,11 +735,20 @@ export default function ArtisanDashboard() {
                         onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "#5A5A50")}
                       >Browse all →</button>
                     </div>
-                    <div className="grid md:grid-cols-2 gap-3">
-                      {displayJobs.slice(0, 4).map((job, i) => (
-                        <JobCard key={job.id} job={job} submitted={submittedBids[job.id]} onBid={() => setShowBidModal(job.id)} index={i} />
-                      ))}
-                    </div>
+                    {displayJobs.length === 0 ? (
+                      <div className="rounded-2xl px-5 py-10 text-center" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
+                        <p className="font-sans text-[14px] font-medium mb-1" style={{ color: "var(--color-cream)" }}>No open jobs yet</p>
+                        <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>
+                          New customer tasks appear here. Check back soon or browse all categories.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid md:grid-cols-2 gap-3">
+                        {displayJobs.slice(0, 4).map((job, i) => (
+                          <JobCard key={job.id} job={job} submitted={submittedBids[job.id]} onBid={() => setShowBidModal(job.id)} index={i} />
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Active job */}
@@ -702,11 +785,31 @@ export default function ArtisanDashboard() {
                       </button>
                     ))}
                   </div>
-                  <div className="grid md:grid-cols-2 gap-3">
-                    {visibleJobs.map((job, i) => (
-                      <JobCard key={job.id} job={job} submitted={submittedBids[job.id]} onBid={() => setShowBidModal(job.id)} index={i} />
-                    ))}
-                  </div>
+                  {visibleJobs.length === 0 ? (
+                    <div className="rounded-2xl px-5 py-12 text-center" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
+                      <p className="font-sans text-[15px] font-medium mb-1" style={{ color: "var(--color-cream)" }}>No open jobs yet</p>
+                      <p className="font-sans text-[13px] mb-4" style={{ color: "#5A5A50" }}>
+                        {catFilter === "All"
+                          ? "When customers post tasks in your area, they show up here for quotes."
+                          : `No open jobs in ${catFilter} right now. Try another category.`}
+                      </p>
+                      {catFilter !== "All" && (
+                        <button
+                          onClick={() => setCatFilter("All")}
+                          className="h-9 px-4 rounded-xl font-sans text-[13px] font-semibold"
+                          style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}
+                        >
+                          Show all categories
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-3">
+                      {visibleJobs.map((job, i) => (
+                        <JobCard key={job.id} job={job} submitted={submittedBids[job.id]} onBid={() => setShowBidModal(job.id)} index={i} />
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               )}
 
@@ -715,32 +818,48 @@ export default function ArtisanDashboard() {
                   <h2 className="font-sans text-[16px] font-semibold mb-5" style={{ color: "var(--color-cream)" }}>
                     My Bids <span className="font-mono text-[13px] ml-1" style={{ color: "#5A5A50" }}>({displayMyBids.length})</span>
                   </h2>
-                  <div className="flex flex-col gap-2">
-                    {displayMyBids.map((bid, i) => {
-                      const cfg = STATUS_CFG[bid.status];
-                      return (
-                        <motion.div key={bid.id}
-                          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                          className="rounded-xl px-5 py-4 flex items-center justify-between gap-4 transition-colors duration-200"
-                          style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}
-                          onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.borderColor = "#2A2A25")}
-                          onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.borderColor = "#1E1E1A")}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="font-sans text-[14px] font-semibold mb-0.5 truncate" style={{ color: "var(--color-cream)" }}>{bid.title}</p>
-                            <p className="font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.4)" }}>{bid.category} · {bid.location} · {bid.submitted}</p>
-                          </div>
-                          <div className="flex items-center gap-4 flex-shrink-0">
-                            <span className="font-mono text-[14px] font-semibold" style={{ color: "var(--color-ochre)" }}>{bid.myPrice}</span>
-                            <span className="font-sans text-[11px] rounded-full px-3 py-1 font-semibold"
-                              style={{ backgroundColor: cfg.bg, color: cfg.color }}>
-                              {cfg.label}
-                            </span>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
+                  {displayMyBids.length === 0 ? (
+                    <div className="rounded-2xl px-5 py-12 text-center" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
+                      <p className="font-sans text-[15px] font-medium mb-1" style={{ color: "var(--color-cream)" }}>You haven&apos;t bid yet</p>
+                      <p className="font-sans text-[13px] mb-4" style={{ color: "#5A5A50" }}>
+                        Find open jobs and submit a quote. Accepted bids become active jobs with escrow pay.
+                      </p>
+                      <button
+                        onClick={() => setTab("browse")}
+                        className="h-9 px-4 rounded-xl font-sans text-[13px] font-semibold"
+                        style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}
+                      >
+                        Find work
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {displayMyBids.map((bid, i) => {
+                        const cfg = STATUS_CFG[bid.status];
+                        return (
+                          <motion.div key={bid.id}
+                            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                            className="rounded-xl px-5 py-4 flex items-center justify-between gap-4 transition-colors duration-200"
+                            style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}
+                            onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.borderColor = "#2A2A25")}
+                            onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.borderColor = "#1E1E1A")}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="font-sans text-[14px] font-semibold mb-0.5 truncate" style={{ color: "var(--color-cream)" }}>{bid.title}</p>
+                              <p className="font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.4)" }}>{bid.category} · {bid.location} · {bid.submitted}</p>
+                            </div>
+                            <div className="flex items-center gap-4 flex-shrink-0">
+                              <span className="font-mono text-[14px] font-semibold" style={{ color: "var(--color-ochre)" }}>{bid.myPrice}</span>
+                              <span className="font-sans text-[11px] rounded-full px-3 py-1 font-semibold"
+                                style={{ backgroundColor: cfg.bg, color: cfg.color }}>
+                                {cfg.label}
+                              </span>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </motion.div>
               )}
 
@@ -834,13 +953,19 @@ export default function ArtisanDashboard() {
                   <div className="max-w-lg">
                     <div className="rounded-2xl p-6 mb-5" style={{ background: "linear-gradient(135deg, rgba(200,134,26,0.08), rgba(200,134,26,0.02))", border: "1px solid rgba(200,134,26,0.15)" }}>
                       <div className="flex items-center gap-4 mb-5">
-                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-serif text-[24px]" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>E</div>
-                        <div>
-                          <h2 className="font-sans text-[18px] font-semibold" style={{ color: "var(--color-cream)" }}>Emeka Okafor</h2>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Stars rating={4.8} />
-                            <span className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>· 127 reviews</span>
-                          </div>
+                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center font-serif text-[24px]" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>{profileInitials.slice(0, 1)}</div>
+                        <div className="min-w-0">
+                          <h2 className="font-sans text-[18px] font-semibold" style={{ color: "var(--color-cream)" }}>{displayProfile.fullName}</h2>
+                          {demoMode ? (
+                            <div className="flex items-center gap-2 mt-1">
+                              <Stars rating={4.8} />
+                              <span className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>· 127 reviews</span>
+                            </div>
+                          ) : (
+                            <p className="font-sans text-[13px] mt-1" style={{ color: "#5A5A50" }}>
+                              {displayProfile.trade} · {displayProfile.state}
+                            </p>
+                          )}
                         </div>
                         {verificationStatus === "verified" && (
                           <div className="ml-auto flex items-center gap-1.5 font-sans text-[12px] rounded-full px-3 py-1" style={{ backgroundColor: "rgba(46,204,106,0.1)", color: "#2ECC6A", border: "1px solid rgba(46,204,106,0.2)" }}>
@@ -864,22 +989,50 @@ export default function ArtisanDashboard() {
                         )}
                       </div>
                       {[
-                        { label: "Specialty", value: "Plumbing & General Repairs" },
-                        { label: "Location", value: "Lagos Island, Lagos" },
-                        { label: "Phone", value: "+234 802 345 6789" },
-                        { label: "Member since", value: "January 2025" },
-                        { label: "Jobs completed", value: "42" },
-                        { label: "Response rate", value: "97%" },
+                        { label: "Specialty", value: displayProfile.trade },
+                        { label: "Location", value: displayProfile.state },
+                        { label: "Phone", value: displayProfile.phone },
+                        {
+                          label: "Member since",
+                          value: displayProfile.createdAt
+                            ? new Date(displayProfile.createdAt).toLocaleDateString("en-NG", { year: "numeric", month: "long" })
+                            : "—",
+                        },
+                        ...(demoMode
+                          ? [
+                              { label: "Jobs completed", value: "42" },
+                              { label: "Response rate", value: "97%" },
+                            ]
+                          : [
+                              {
+                                label: "Jobs won",
+                                value: String(displayMyBids.filter((b) => b.status === "accepted").length),
+                              },
+                            ]),
                       ].map(f => (
                         <div key={f.label} className="flex items-center justify-between py-3 border-b" style={{ borderColor: "rgba(200,134,26,0.1)" }}>
                           <span className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>{f.label}</span>
-                          <span className="font-sans text-[14px] font-medium" style={{ color: "var(--color-cream)" }}>{f.value}</span>
+                          <span className="font-sans text-[14px] font-medium text-right max-w-[60%]" style={{ color: "var(--color-cream)" }}>{f.value}</span>
                         </div>
                       ))}
-                      <button className="mt-5 w-full h-10 rounded-xl font-sans text-[14px] font-semibold transition-all duration-200"
-                        style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>
-                        Edit Profile
-                      </button>
+                      {displayProfile.bio && (
+                        <div className="py-3 border-b" style={{ borderColor: "rgba(200,134,26,0.1)" }}>
+                          <p className="font-sans text-[13px] mb-1" style={{ color: "#5A5A50" }}>Bio</p>
+                          <p className="font-sans text-[14px] leading-relaxed" style={{ color: "var(--color-cream)" }}>{displayProfile.bio}</p>
+                        </div>
+                      )}
+                      <p className="mt-5 font-sans text-[12px] leading-relaxed" style={{ color: "#5A5A50" }}>
+                        To update trade, phone, or service details,{" "}
+                        <button
+                          type="button"
+                          onClick={() => setShowVerification(true)}
+                          className="underline underline-offset-2"
+                          style={{ color: "var(--color-ochre)" }}
+                        >
+                          complete verification
+                        </button>
+                        {" "}— admin review keeps your public profile trustworthy.
+                      </p>
                     </div>
                   </div>
                 </motion.div>
@@ -929,15 +1082,15 @@ export default function ArtisanDashboard() {
         )}
       </AnimatePresence>
 
-      {/* Mobile bottom nav */}
+      {/* Mobile bottom nav — Active Jobs reachable for proof/escrow */}
       <MobileNav
         active={tab}
         onSelect={setTab}
         items={[
           { id: "overview", label: "Overview", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> },
           { id: "browse", label: "Jobs", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
-          { id: "mybids", label: "My Bids", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> },
-          { id: "earnings", label: "Earnings", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
+          { id: "active", label: "Active", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
+          { id: "mybids", label: "Bids", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> },
           { id: "profile", label: "Profile", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
         ]}
       />
@@ -945,7 +1098,20 @@ export default function ArtisanDashboard() {
   );
 }
 
-function SidebarContent({ tab, setTab, setSidebarOpen }: { tab: string; setTab: (t: string) => void; setSidebarOpen: (v: boolean) => void }) {
+function SidebarContent({
+  tab,
+  setTab,
+  setSidebarOpen,
+  profile,
+  activeJobCount,
+}: {
+  tab: string;
+  setTab: (t: string) => void;
+  setSidebarOpen: (v: boolean) => void;
+  profile: ArtisanProfile;
+  activeJobCount: number;
+}) {
+  const initials = initialsFromName(profile.fullName);
   return (
     <>
       <div className="flex items-center justify-between px-5 h-16 border-b flex-shrink-0" style={{ borderColor: "#1E1E1A" }}>
@@ -972,15 +1138,28 @@ function SidebarContent({ tab, setTab, setSidebarOpen }: { tab: string; setTab: 
             >
               {item.icon}
               <span className="font-sans text-[14px] font-medium">{item.label}</span>
-              {"badge" in item && item.badge ? (
+              {item.id === "active" && activeJobCount > 0 ? (
                 <span className="ml-auto text-[11px] font-mono rounded-full px-2 py-0.5 font-semibold"
                   style={{ backgroundColor: "rgba(200,134,26,0.15)", color: "var(--color-ochre)" }}>
-                  {item.badge}
+                  {activeJobCount}
                 </span>
               ) : null}
             </button>
           );
         })}
+        <Link
+          href="/messages"
+          onClick={() => setSidebarOpen(false)}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 transition-all duration-200"
+          style={{ color: "#5A5A50", border: "1px solid transparent" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--color-cream)"; (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(255,255,255,0.03)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#5A5A50"; (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"; }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span className="font-sans text-[14px] font-medium">Messages</span>
+        </Link>
       </nav>
 
       <div className="flex-shrink-0 p-4 border-t" style={{ borderColor: "#1E1E1A" }}>
@@ -989,10 +1168,10 @@ function SidebarContent({ tab, setTab, setSidebarOpen }: { tab: string; setTab: 
           onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = "#5A5A50")}
         >← Back to marketplace</Link>
         <div className="flex items-center gap-3 rounded-xl p-3" style={{ backgroundColor: "#131310", border: "1px solid #1E1E1A" }}>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center font-sans text-[12px] font-semibold flex-shrink-0" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>EO</div>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center font-sans text-[12px] font-semibold flex-shrink-0" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>{initials}</div>
           <div className="min-w-0">
-            <p className="font-sans text-[13px] font-medium truncate" style={{ color: "var(--color-cream)" }}>Emeka Okafor</p>
-            <p className="font-sans text-[11px] truncate" style={{ color: "#5A5A50" }}>Plumber · Lagos</p>
+            <p className="font-sans text-[13px] font-medium truncate" style={{ color: "var(--color-cream)" }}>{profile.fullName}</p>
+            <p className="font-sans text-[11px] truncate" style={{ color: "#5A5A50" }}>{profile.trade} · {profile.state}</p>
           </div>
         </div>
       </div>

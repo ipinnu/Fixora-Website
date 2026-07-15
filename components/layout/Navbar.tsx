@@ -35,8 +35,21 @@ export default function Navbar() {
 
     const loadUser = async () => {
       try {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (!authUser) { setUser(null); setAuthLoading(false); return; }
+        const { data: { user: authUser }, error } = await supabase.auth.getUser();
+        if (
+          error &&
+          (error.code === "refresh_token_not_found" ||
+            error.message.includes("Refresh Token") ||
+            error.message.includes("Invalid Refresh Token"))
+        ) {
+          await supabase.auth.signOut({ scope: "local" });
+          setUser(null);
+          return;
+        }
+        if (error || !authUser) {
+          setUser(null);
+          return;
+        }
 
         const { data: profile } = await supabase
           .from("profiles")
@@ -143,13 +156,13 @@ export default function Navbar() {
                   <>
                     <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                       <Link
-                        href="/post-job"
+                        href={user.role === "artisan" ? "/jobs" : "/post-job"}
                         className="rounded-full px-5 py-2 font-sans text-[14px] font-semibold transition-all duration-200 border"
                         style={{ borderColor: "rgba(200,134,26,0.35)", color: "var(--color-ochre)" }}
                         onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(200,134,26,0.08)"; (e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--color-ochre)"; }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"; (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(200,134,26,0.35)"; }}
                       >
-                        Post a Task
+                        {user.role === "artisan" ? "Find Work" : "Post a Task"}
                       </Link>
                     </motion.div>
 
@@ -285,12 +298,12 @@ export default function Navbar() {
                       </span>
                     </div>
                     <Link
-                      href="/post-job"
+                      href={user.role === "artisan" ? "/jobs" : "/post-job"}
                       className="rounded-full px-5 py-2.5 font-sans text-[14px] font-semibold text-center"
                       style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}
                       onClick={() => setOpen(false)}
                     >
-                      Post a Task
+                      {user.role === "artisan" ? "Find Work" : "Post a Task"}
                     </Link>
                     <Link
                       href={dashboardHref}
