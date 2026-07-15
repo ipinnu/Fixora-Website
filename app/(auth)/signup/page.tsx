@@ -7,6 +7,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, Briefcase, Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { clearDemoSession } from "@/lib/demo-session";
 import CategorySelect from "@/components/CategorySelect";
 
 type Role = "customer" | "artisan";
@@ -37,22 +38,36 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: { full_name: form.fullName, role, trade: form.trade, state: form.state },
-      },
-    });
-    setLoading(false);
-    if (error) { setError(error.message); return; }
-    // If email confirmation is off, Supabase returns a session immediately
-    if (data.session) {
-      router.push(role === "artisan" ? "/artisan" : "/customer");
-    } else {
-      router.push(`/verify?email=${encodeURIComponent(form.email)}&role=${role}`);
+    try {
+      const email = form.email.trim().toLowerCase();
+      const supabase = createClient();
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password: form.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            full_name: form.fullName.trim(),
+            role,
+            trade: role === "artisan" ? form.trade : "",
+            state: role === "artisan" ? form.state : "",
+          },
+        },
+      });
+
+      if (signUpError) throw signUpError;
+
+      clearDemoSession();
+      if (data.session) {
+        router.replace(role === "artisan" ? "/artisan" : "/customer");
+        router.refresh();
+      } else {
+        router.replace(`/verify?email=${encodeURIComponent(email)}&role=${role}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "We couldn't create your account. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -223,8 +238,8 @@ export default function SignupPage() {
                   transition={{ duration: 0.3 }}
                   className="flex flex-col gap-4 overflow-hidden"
                 >
-                  <div className="flex gap-3">
-                    <div className="flex-1 flex flex-col gap-1.5">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1 flex flex-col gap-1.5 min-w-0">
                       <label className="font-sans text-[13px] font-medium" style={{ color: "var(--color-sand)" }}>
                         Trade / Skill
                       </label>
@@ -233,13 +248,13 @@ export default function SignupPage() {
                         value={form.trade}
                         onChange={(trade) => setForm(f => ({ ...f, trade }))}
                         placeholder="Select trade"
-                        className="h-12 rounded-xl border px-4 font-sans text-[15px] outline-none transition-colors duration-200 w-full appearance-none cursor-pointer"
+                        className="h-12 rounded-xl border px-0 font-sans text-[15px] outline-none transition-colors duration-200 w-full appearance-none cursor-pointer"
                         style={{ backgroundColor: "var(--color-bg-3)", borderColor: "var(--color-border)", color: form.trade ? "var(--color-cream)" : "var(--color-muted)" }}
                         onFocus={e => (e.currentTarget.style.borderColor = "var(--color-ochre)")}
                         onBlur={e => (e.currentTarget.style.borderColor = "var(--color-border)")}
                       />
                     </div>
-                    <div className="flex-1 flex flex-col gap-1.5">
+                    <div className="flex-1 flex flex-col gap-1.5 min-w-0">
                       <label className="font-sans text-[13px] font-medium" style={{ color: "var(--color-sand)" }}>
                         State
                       </label>
