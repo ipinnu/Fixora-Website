@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { acceptBid as acceptBidInDb, declineBid as declineBidInDb } from "@/lib/supabase/bids";
-import DemoToggle from "@/components/dashboard/DemoToggle";
+import DemoPreviewBanner from "@/components/dashboard/DemoPreviewBanner";
+import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
 import MobileNav from "@/components/dashboard/MobileNav";
-import { DEMO_PROFILES, getDemoSession } from "@/lib/demo-session";
+import { DEMO_PROFILES, clearDemoSession, getDemoSession } from "@/lib/demo-session";
 
 const JOBS = [
   { id: "1", title: "Fix leaking kitchen pipe", category: "Plumbing", location: "Lagos Island", bids: 3, status: "reviewing", posted: "2h ago", budget: "₦15,000", photos: 2 },
@@ -110,7 +111,8 @@ export default function CustomerDashboard() {
   const [acceptedBids, setAcceptedBids] = useState<string[]>([]);
   const [declinedBids, setDeclinedBids] = useState<string[]>([]);
   const [selectedJobFilter, setSelectedJobFilter] = useState("all");
-  const [demoMode, setDemoMode] = useState(true);
+  const [isPreviewSession, setIsPreviewSession] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
   const [liveJobs, setLiveJobs] = useState<typeof JOBS>([]);
   const [liveBids, setLiveBids] = useState<typeof BIDS>([]);
   const [livePayments, setLivePayments] = useState<typeof PAYMENTS>([]);
@@ -119,30 +121,40 @@ export default function CustomerDashboard() {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
 
   useEffect(() => {
-    const demoRole = getDemoSession();
-    if (demoRole === "customer") {
-      setProfile(DEMO_PROFILES.customer);
-      return;
-    }
-    if (demoRole === "artisan") { router.replace("/artisan"); return; }
-    if (demoRole === "admin") { router.replace("/admin"); return; }
-
     const supabase = createClient();
+
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { router.replace("/login"); return; }
-      const { data: profileRow } = await supabase
-        .from("profiles")
-        .select("full_name, role, state, phone")
-        .eq("id", user.id)
-        .single();
-      if (profileRow?.role === "artisan") { router.replace("/artisan"); return; }
-      setUserId(user.id);
-      setProfile({
-        fullName: profileRow?.full_name ?? (user.user_metadata?.full_name as string | undefined) ?? null,
-        email: user.email ?? null,
-        state: profileRow?.state ?? null,
-        phone: profileRow?.phone ?? null,
-      });
+      if (user) {
+        clearDemoSession();
+        const { data: profileRow } = await supabase
+          .from("profiles")
+          .select("full_name, role, state, phone")
+          .eq("id", user.id)
+          .single();
+        if (profileRow?.role === "artisan") { router.replace("/artisan"); return; }
+        setUserId(user.id);
+        setDemoMode(false);
+        setIsPreviewSession(false);
+        setProfile({
+          fullName: profileRow?.full_name ?? (user.user_metadata?.full_name as string | undefined) ?? null,
+          email: user.email ?? null,
+          state: profileRow?.state ?? null,
+          phone: profileRow?.phone ?? null,
+        });
+        return;
+      }
+
+      const demoRole = getDemoSession();
+      if (demoRole === "customer") {
+        setIsPreviewSession(true);
+        setDemoMode(true);
+        setProfile(DEMO_PROFILES.customer);
+        return;
+      }
+      if (demoRole === "artisan") { router.replace("/artisan"); return; }
+      if (demoRole === "admin") { router.replace("/admin"); return; }
+
+      router.replace("/login");
     });
   }, [router]);
 
@@ -324,7 +336,6 @@ export default function CustomerDashboard() {
                 </h1>
               </div>
               <div className="hidden sm:flex items-center gap-3">
-                <DemoToggle demo={demoMode} onToggle={() => setDemoMode(d => !d)} />
                 <Link
                   href="/post-job"
                   className="flex items-center gap-2 h-10 px-5 rounded-xl font-sans text-[14px] font-semibold transition-all duration-200"
@@ -341,24 +352,8 @@ export default function CustomerDashboard() {
             </div>
           </div>
 
-          {/* Demo banner */}
           <AnimatePresence>
-            {demoMode && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="flex items-center justify-between px-6 lg:px-10 py-2.5 text-[12px] font-sans"
-                style={{ backgroundColor: "rgba(200,134,26,0.07)", borderBottom: "1px solid rgba(200,134,26,0.12)" }}
-              >
-                <span style={{ color: "var(--color-ochre)" }}>
-                  ✦ Showing sample data — toggle <strong>Live</strong> to see your real tasks and offers
-                </span>
-                <button onClick={() => setDemoMode(false)} className="font-semibold underline underline-offset-2" style={{ color: "var(--color-ochre)" }}>
-                  Switch to Live
-                </button>
-              </motion.div>
-            )}
+            {isPreviewSession && <DemoPreviewBanner role="customer" />}
           </AnimatePresence>
 
           {/* Tab content */}
@@ -377,10 +372,10 @@ export default function CustomerDashboard() {
                   {/* Stats */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                     {[
-                      { label: "Open Tasks", value: jobs.filter(j => j.status !== "completed").length.toString(), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>, accent: "#C8861A", glow: "rgba(200,134,26,0.15)" },
-                      { label: "Offers In", value: bids.length.toString(), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, accent: "#3B82F6", glow: "rgba(59,130,246,0.12)" },
-                      { label: "Underway", value: jobs.filter(j => j.status === "in_progress").length.toString(), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>, accent: "#F59E0B", glow: "rgba(245,158,11,0.12)" },
-                      { label: "Done", value: jobs.filter(j => j.status === "completed").length.toString(), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>, accent: "#2ECC6A", glow: "rgba(46,204,106,0.12)" },
+                      { label: "Open Tasks", value: jobs.filter(j => j.status !== "completed").length.toString(), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>, glow: "rgba(200,134,26,0.12)" },
+                      { label: "Offers In", value: bids.length.toString(), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, glow: "rgba(200,134,26,0.1)" },
+                      { label: "Underway", value: jobs.filter(j => j.status === "in_progress").length.toString(), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>, glow: "rgba(232,160,64,0.1)" },
+                      { label: "Done", value: jobs.filter(j => j.status === "completed").length.toString(), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>, glow: "rgba(200,134,26,0.08)" },
                     ].map(stat => (
                       <motion.div
                         key={stat.label}
@@ -390,7 +385,7 @@ export default function CustomerDashboard() {
                         style={{ background: `linear-gradient(135deg, ${stat.glow} 0%, rgba(255,255,255,0.01) 100%)`, border: `1px solid ${stat.glow}` }}
                       >
                         <div className="flex items-center justify-between mb-3">
-                          <span style={{ color: stat.accent }}>{stat.icon}</span>
+                          <span style={{ color: "var(--color-ochre)" }}>{stat.icon}</span>
                           <span className="font-mono text-[11px] uppercase tracking-wider" style={{ color: "#3A3A33" }}>
                             {stat.label === "Done" ? "all time" : "active"}
                           </span>
@@ -410,7 +405,20 @@ export default function CustomerDashboard() {
                         onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "#5A5A50")}
                       >View all →</button>
                     </div>
-                    <JobTable jobs={jobs.slice(0, 4)} />
+                    <JobTable jobs={jobs.slice(0, 4)} emptyState={
+                      !demoMode && jobs.length === 0 ? (
+                        <DashboardEmptyState
+                          title="No tasks yet"
+                          description="Post your first home repair or service task to start receiving offers from verified artisans."
+                          action={
+                            <Link href="/post-job" className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl font-sans text-[13px] font-semibold"
+                              style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>
+                              Post your first task
+                            </Link>
+                          }
+                        />
+                      ) : undefined
+                    } />
                   </div>
 
                   {/* Recent offers */}
@@ -423,7 +431,14 @@ export default function CustomerDashboard() {
                       >View all →</button>
                     </div>
                     <div className="grid md:grid-cols-2 gap-3">
-                      {bids.slice(0, 2).map(bid => (
+                      {!demoMode && bids.length === 0 ? (
+                        <div className="md:col-span-2">
+                          <DashboardEmptyState
+                            title="No offers yet"
+                            description="When artisans bid on your tasks, their offers will appear here for you to review."
+                          />
+                        </div>
+                      ) : bids.slice(0, 2).map(bid => (
                         <BidCard key={bid.id} bid={bid} accepted={acceptedBids.includes(bid.id)} declined={declinedBids.includes(bid.id)}
                           onAccept={async () => { if (!demoMode) await acceptBidInDb(bid.id, bid.jobId); setAcceptedBids(p => [...p, bid.id]); }}
                           onDecline={async () => { if (!demoMode) await declineBidInDb(bid.id); setDeclinedBids(p => [...p, bid.id]); }}
@@ -444,7 +459,23 @@ export default function CustomerDashboard() {
                       + Post new task
                     </Link>
                   </div>
-                  <JobTable jobs={jobs} />
+                  <JobTable
+                    jobs={jobs}
+                    emptyState={
+                      !demoMode && jobs.length === 0 ? (
+                        <DashboardEmptyState
+                          title="No tasks yet"
+                          description="Post a task describing what you need done — artisans in your area can send you quotes."
+                          action={
+                            <Link href="/post-job" className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl font-sans text-[13px] font-semibold"
+                              style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>
+                              Post a task
+                            </Link>
+                          }
+                        />
+                      ) : undefined
+                    }
+                  />
                 </motion.div>
               )}
 
@@ -465,7 +496,20 @@ export default function CustomerDashboard() {
                     </select>
                   </div>
                   <div className="flex flex-col gap-3">
-                    {filteredBids.map(bid => (
+                    {!demoMode && filteredBids.length === 0 ? (
+                      <DashboardEmptyState
+                        title="No offers yet"
+                        description={jobs.length === 0
+                          ? "Post a task first, then artisans can send you offers to review."
+                          : "Artisans haven't bid on your open tasks yet. Check back soon or post another task."}
+                        action={jobs.length === 0 ? (
+                          <Link href="/post-job" className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl font-sans text-[13px] font-semibold"
+                            style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>
+                            Post a task
+                          </Link>
+                        ) : undefined}
+                      />
+                    ) : filteredBids.map(bid => (
                       <BidCard key={bid.id} bid={bid} accepted={acceptedBids.includes(bid.id)} declined={declinedBids.includes(bid.id)}
                         onAccept={() => setAcceptedBids(p => [...p, bid.id])}
                         onDecline={() => setDeclinedBids(p => [...p, bid.id])}
@@ -496,7 +540,10 @@ export default function CustomerDashboard() {
                   <h2 className="font-sans text-[16px] font-semibold mb-4" style={{ color: "var(--color-cream)" }}>Payment History</h2>
                   <div className="flex flex-col gap-2">
                     {payments.length === 0 && !demoMode ? (
-                      <p className="font-sans text-[14px] py-8 text-center" style={{ color: "#5A5A50" }}>No payments yet.</p>
+                      <DashboardEmptyState
+                        title="No payments yet"
+                        description="When you accept an offer and pay through FIXORA escrow, your payment history will show here."
+                      />
                     ) : payments.map(p => (
                       <div key={p.id} className="flex items-center justify-between rounded-xl px-5 py-4 transition-colors duration-200"
                         style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}
@@ -622,6 +669,19 @@ function SidebarContent({
             </button>
           );
         })}
+        <Link
+          href="/messages"
+          onClick={() => setSidebarOpen(false)}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 transition-all duration-200"
+          style={{ color: "#5A5A50", border: "1px solid transparent" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--color-cream)"; (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(255,255,255,0.03)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#5A5A50"; (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"; }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span className="font-sans text-[14px] font-medium">Messages</span>
+        </Link>
       </nav>
 
       {/* User card */}
@@ -644,7 +704,8 @@ function SidebarContent({
   );
 }
 
-function JobTable({ jobs }: { jobs: typeof JOBS }) {
+function JobTable({ jobs, emptyState }: { jobs: typeof JOBS; emptyState?: ReactNode }) {
+  if (jobs.length === 0 && emptyState) return <>{emptyState}</>;
   return (
     <div className="flex flex-col gap-2">
       {jobs.map((job, i) => (

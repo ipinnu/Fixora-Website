@@ -23,6 +23,7 @@ function MessagesPageContent() {
   const activeJobId = params.get("job");
 
   const [userId, setUserId] = useState<string | null>(null);
+  const [dashboardHref, setDashboardHref] = useState("/customer");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [body, setBody] = useState("");
@@ -34,9 +35,16 @@ function MessagesPageContent() {
 
   // Auth check
   useEffect(() => {
-    createClient().auth.getUser().then(({ data: { user } }) => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace("/login"); return; }
       setUserId(user.id);
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      setDashboardHref(profile?.role === "artisan" ? "/artisan" : "/customer");
     });
   }, [router]);
 
@@ -132,9 +140,23 @@ function MessagesPageContent() {
       <div className={`${sidebarOpen || !activeJobId ? "flex" : "hidden"} lg:flex flex-col w-full lg:w-80 flex-shrink-0 border-r`}
         style={{ borderColor: "#1E1E1A", backgroundColor: "#0F0E0C" }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 h-16 border-b flex-shrink-0" style={{ borderColor: "#1E1E1A" }}>
-          <Link href="/" className="font-serif text-[20px]" style={{ color: "var(--color-ochre)" }}>FIXORA</Link>
-          <span className="font-sans text-[13px] font-semibold" style={{ color: "var(--color-cream)" }}>Messages</span>
+        <div className="flex flex-col gap-2 px-4 py-3 border-b flex-shrink-0" style={{ borderColor: "#1E1E1A" }}>
+          <div className="flex items-center justify-between">
+            <Link href="/" className="font-serif text-[20px]" style={{ color: "var(--color-ochre)" }}>FIXORA</Link>
+            <span className="font-sans text-[13px] font-semibold" style={{ color: "var(--color-cream)" }}>Messages</span>
+          </div>
+          <Link
+            href={dashboardHref}
+            className="inline-flex items-center gap-1.5 self-start font-sans text-[12px] transition-colors"
+            style={{ color: "#5A5A50" }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--color-ochre)")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "#5A5A50")}
+          >
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 4L6 10l6 6" />
+            </svg>
+            Back to dashboard
+          </Link>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -185,17 +207,34 @@ function MessagesPageContent() {
           <>
             {/* Conversation header */}
             <div className="flex items-center gap-3 px-5 h-16 border-b flex-shrink-0" style={{ borderColor: "#1E1E1A", backgroundColor: "#0F0E0C" }}>
-              <button className="lg:hidden mr-1" onClick={() => setSidebarOpen(true)} style={{ color: "#5A5A50" }}>
+              <button className="lg:hidden mr-1" onClick={() => setSidebarOpen(true)} style={{ color: "#5A5A50" }} aria-label="Back to conversations">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 4L6 10l6 6"/></svg>
               </button>
+              <Link
+                href={dashboardHref}
+                className="hidden lg:inline-flex items-center gap-1 mr-1 font-sans text-[12px] transition-colors"
+                style={{ color: "#5A5A50" }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--color-ochre)")}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "#5A5A50")}
+              >
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 4L6 10l6 6"/></svg>
+                Dashboard
+              </Link>
               <div className="w-9 h-9 rounded-xl flex items-center justify-center font-sans text-[13px] font-semibold flex-shrink-0"
                 style={{ background: "linear-gradient(135deg, rgba(200,134,26,0.2), rgba(200,134,26,0.08))", color: "var(--color-ochre)" }}>
                 {activeThread?.other_name.charAt(0) ?? "?"}
               </div>
-              <div>
-                <p className="font-sans text-[14px] font-semibold" style={{ color: "var(--color-cream)" }}>{activeThread?.other_name}</p>
-                <p className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>{activeThread?.job_title}</p>
+              <div className="min-w-0 flex-1">
+                <p className="font-sans text-[14px] font-semibold truncate" style={{ color: "var(--color-cream)" }}>{activeThread?.other_name}</p>
+                <p className="font-sans text-[12px] truncate" style={{ color: "#5A5A50" }}>{activeThread?.job_title}</p>
               </div>
+              <Link
+                href={dashboardHref}
+                className="lg:hidden font-sans text-[12px] font-medium flex-shrink-0"
+                style={{ color: "var(--color-ochre)" }}
+              >
+                Dashboard
+              </Link>
             </div>
 
             {/* Messages */}

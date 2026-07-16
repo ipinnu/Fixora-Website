@@ -20,6 +20,7 @@ import {
   type TransactionWithCompletion,
 } from "@/lib/supabase/completions";
 import DemoToggle from "@/components/dashboard/DemoToggle";
+import DemoPreviewBanner from "@/components/dashboard/DemoPreviewBanner";
 
 const ADMIN_EMAIL = "ipinnu.oladipo23@gmail.com";
 
@@ -51,17 +52,26 @@ export default function AdminPage() {
   const [isDemoSession, setIsDemoSession] = useState(false);
 
   useEffect(() => {
-    if (getDemoSession() === "admin") {
-      setIsDemoSession(true);
-      setDemoMode(true);
-      setLoading(false);
-      return;
-    }
-
     const supabase = createClient();
+
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user || user.email !== ADMIN_EMAIL) { router.replace("/"); return; }
-      setLoading(false);
+      if (user) {
+        clearDemoSession();
+        if (user.email !== ADMIN_EMAIL) { router.replace("/"); return; }
+        setIsDemoSession(false);
+        setDemoMode(false);
+        setLoading(false);
+        return;
+      }
+
+      if (getDemoSession() === "admin") {
+        setIsDemoSession(true);
+        setDemoMode(true);
+        setLoading(false);
+        return;
+      }
+
+      router.replace("/");
     });
   }, [router]);
 
@@ -128,7 +138,9 @@ export default function AdminPage() {
           <span className="font-sans text-[11px] rounded-full px-2.5 py-1 font-semibold" style={{ backgroundColor: "rgba(232,69,69,0.1)", color: "#E84545", border: "1px solid rgba(232,69,69,0.2)" }}>Admin</span>
         </div>
         <div className="flex items-center gap-3">
-          <DemoToggle demo={demoMode} onToggle={() => setDemoMode((d) => !d)} />
+          {!isDemoSession && (
+            <DemoToggle demo={demoMode} onToggle={() => setDemoMode((d) => !d)} />
+          )}
           {isDemoSession && (
             <Link
               href="/login"
@@ -138,7 +150,7 @@ export default function AdminPage() {
               onMouseEnter={e => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--color-cream)")}
               onMouseLeave={e => ((e.currentTarget as HTMLAnchorElement).style.color = "#5A5A50")}
             >
-              Exit demo
+              Exit preview
             </Link>
           )}
           <button onClick={load} className="font-sans text-[12px] h-8 px-3 rounded-lg transition-colors" style={{ backgroundColor: "#1B1B17", border: "1px solid #2A2A25", color: "#5A5A50" }}
@@ -150,7 +162,8 @@ export default function AdminPage() {
       </div>
 
       <AnimatePresence>
-        {demoMode && (
+        {isDemoSession && <DemoPreviewBanner role="admin" />}
+        {!isDemoSession && demoMode && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
@@ -159,7 +172,7 @@ export default function AdminPage() {
             style={{ backgroundColor: "rgba(200,134,26,0.07)", borderBottom: "1px solid rgba(200,134,26,0.12)" }}
           >
             <span style={{ color: "var(--color-ochre)" }}>
-              ✦ Showing sample platform data — toggle <strong>Live</strong> to see real users, jobs, transactions, and verifications
+              Viewing sample platform data for demos — toggle <strong>Live</strong> for production records
             </span>
             <button
               type="button"
@@ -167,7 +180,7 @@ export default function AdminPage() {
               className="font-semibold underline underline-offset-2"
               style={{ color: "var(--color-ochre)" }}
             >
-              Switch to Live
+              Back to live
             </button>
           </motion.div>
         )}

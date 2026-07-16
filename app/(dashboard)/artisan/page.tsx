@@ -7,13 +7,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { submitBid as submitBidToDb } from "@/lib/supabase/bids";
 import NotificationBell from "@/components/dashboard/NotificationBell";
-import DemoToggle from "@/components/dashboard/DemoToggle";
+import DemoPreviewBanner from "@/components/dashboard/DemoPreviewBanner";
 import MobileNav from "@/components/dashboard/MobileNav";
 import VerificationFlow from "@/components/dashboard/VerificationFlow";
 import ProofOfWorkModal from "@/components/dashboard/ProofOfWorkModal";
 import { fetchArtisanVerificationStatus, type VerificationStatus } from "@/lib/supabase/verification";
 import type { CompletionStatus } from "@/lib/supabase/completions";
-import { getDemoSession } from "@/lib/demo-session";
+import { clearDemoSession, getDemoSession } from "@/lib/demo-session";
 import { getFilterGroupOptions, matchesCategoryFilter } from "@/lib/categories";
 
 const AVAILABLE_JOBS = [
@@ -73,10 +73,10 @@ const TRANSACTIONS = [
 
 const CATEGORIES_FILTER = getFilterGroupOptions();
 
-const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
-  accepted: { label: "Accepted", color: "#2ECC6A", bg: "rgba(46,204,106,0.08)" },
-  pending:  { label: "Pending", color: "#C8861A", bg: "rgba(200,134,26,0.08)" },
-  declined: { label: "Declined", color: "#E84545", bg: "rgba(232,69,69,0.08)" },
+const STATUS_CFG: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  accepted: { label: "Accepted", color: "var(--color-cream)", bg: "rgba(242,237,223,0.06)", border: "rgba(242,237,223,0.22)" },
+  pending:  { label: "Pending", color: "var(--color-ochre)", bg: "rgba(200,134,26,0.08)", border: "rgba(200,134,26,0.3)" },
+  declined: { label: "Declined", color: "rgba(242,237,223,0.55)", bg: "transparent", border: "rgba(242,237,223,0.18)" },
 };
 
 type ArtisanProfile = {
@@ -89,11 +89,11 @@ type ArtisanProfile = {
 };
 
 const DEMO_PROFILE: ArtisanProfile = {
-  fullName: "Emeka Okafor",
+  fullName: "Demo Artisan",
   trade: "Plumbing & General Repairs",
   state: "Lagos",
-  phone: "+234 802 345 6789",
-  bio: "",
+  phone: "+234 800 000 0000",
+  bio: "Sample artisan profile for preview mode.",
   createdAt: "2025-01-15T00:00:00.000Z",
 };
 
@@ -136,11 +136,44 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
+/** Quiet status label — hairline frame, no pulse dots */
+function StatusChip({
+  tone,
+  children,
+  onClick,
+}: {
+  tone: "verified" | "pending" | "unverified" | "rejected" | "active" | "neutral";
+  children: React.ReactNode;
+  onClick?: () => void;
+}) {
+  const tones: Record<string, { color: string; border: string; bg: string }> = {
+    verified: { color: "var(--color-cream)", border: "rgba(242,237,223,0.28)", bg: "rgba(242,237,223,0.06)" },
+    pending: { color: "var(--color-ochre)", border: "rgba(200,134,26,0.35)", bg: "rgba(200,134,26,0.08)" },
+    unverified: { color: "var(--color-cream)", border: "rgba(232,69,69,0.35)", bg: "rgba(232,69,69,0.06)" },
+    rejected: { color: "#E84545", border: "rgba(232,69,69,0.4)", bg: "rgba(232,69,69,0.08)" },
+    active: { color: "var(--color-cream)", border: "rgba(200,134,26,0.3)", bg: "rgba(200,134,26,0.06)" },
+    neutral: { color: "rgba(242,237,223,0.65)", border: "rgba(242,237,223,0.18)", bg: "transparent" },
+  };
+  const t = tones[tone];
+  const Tag = onClick ? "button" : "span";
+  return (
+    <Tag
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className="inline-flex items-center font-mono text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 rounded-md transition-opacity hover:opacity-90"
+      style={{ color: t.color, border: `1px solid ${t.border}`, backgroundColor: t.bg }}
+    >
+      {children}
+    </Tag>
+  );
+}
+
 export default function ArtisanDashboard() {
   const router = useRouter();
   const [tab, setTab] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isPreviewSession, setIsPreviewSession] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [profile, setProfile] = useState<ArtisanProfile>(DEMO_PROFILE);
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("unverified");
@@ -160,38 +193,46 @@ export default function ArtisanDashboard() {
   const [bidMessages, setBidMessages] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const demoRole = getDemoSession();
-    if (demoRole === "artisan") {
-      setDemoMode(true);
-      setProfile(DEMO_PROFILE);
-      return;
-    }
-    if (demoRole === "customer") { router.replace("/customer"); return; }
-    if (demoRole === "admin") { router.replace("/admin"); return; }
-
     const supabase = createClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { router.replace("/login"); return; }
-      const { data: row } = await supabase
-        .from("profiles")
-        .select("role, full_name, trade, state, phone, bio, created_at, verification_status")
-        .eq("id", user.id)
-        .single();
-      if (row?.role === "customer") { router.replace("/customer"); return; }
 
-      setUserId(user.id);
-      setDemoMode(false);
-      setProfile({
-        fullName: row?.full_name || user.email || "Artisan",
-        trade: row?.trade || "Not set",
-        state: row?.state || "—",
-        phone: row?.phone || "—",
-        bio: row?.bio || "",
-        createdAt: row?.created_at ?? null,
-      });
-      if (row?.verification_status) {
-        setVerificationStatus(row.verification_status as VerificationStatus);
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (user) {
+        clearDemoSession();
+        const { data: row } = await supabase
+          .from("profiles")
+          .select("role, full_name, trade, state, phone, bio, created_at, verification_status")
+          .eq("id", user.id)
+          .single();
+        if (row?.role === "customer") { router.replace("/customer"); return; }
+
+        setUserId(user.id);
+        setDemoMode(false);
+        setIsPreviewSession(false);
+        setProfile({
+          fullName: row?.full_name || user.email || "Artisan",
+          trade: row?.trade || "Not set",
+          state: row?.state || "—",
+          phone: row?.phone || "—",
+          bio: row?.bio || "",
+          createdAt: row?.created_at ?? null,
+        });
+        if (row?.verification_status) {
+          setVerificationStatus(row.verification_status as VerificationStatus);
+        }
+        return;
       }
+
+      const demoRole = getDemoSession();
+      if (demoRole === "artisan") {
+        setIsPreviewSession(true);
+        setDemoMode(true);
+        setProfile(DEMO_PROFILE);
+        return;
+      }
+      if (demoRole === "customer") { router.replace("/customer"); return; }
+      if (demoRole === "admin") { router.replace("/admin"); return; }
+
+      router.replace("/login");
     });
   }, [router]);
 
@@ -510,65 +551,51 @@ export default function ArtisanDashboard() {
 
         <div className="flex-1 overflow-auto">
           {/* Header */}
-          <div className="relative px-6 lg:px-10 py-8 overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(200,134,26,0.1) 0%, rgba(200,134,26,0.03) 40%, transparent 100%)", borderBottom: "1px solid #1E1E1A" }}>
-            <div className="absolute inset-0 pointer-events-none">
-              <div style={{ position: "absolute", top: 0, right: 0, width: "300px", height: "200px", background: "radial-gradient(ellipse at top right, rgba(200,134,26,0.07) 0%, transparent 70%)" }} />
-            </div>
-            <div className="relative flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="font-mono text-[11px] uppercase tracking-widest" style={{ color: "var(--color-ochre)" }}>
+          <div className="relative px-6 lg:px-10 py-7 overflow-hidden" style={{ borderBottom: "1px solid #1E1E1A" }}>
+            <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 50% 80% at 100% 0%, rgba(200,134,26,0.09) 0%, transparent 70%)" }} />
+            <div className="relative flex items-end justify-between gap-6">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5 mb-3 flex-wrap">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.16em]" style={{ color: "rgba(242,237,223,0.45)" }}>
                     {NAV.find(n => n.id === tab)?.label}
                   </p>
-                  {verificationStatus === "verified" && (
-                    <span className="flex items-center gap-1 font-mono text-[10px]" style={{ color: "#2ECC6A" }}>
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#2ECC6A" }} />
-                      Verified
-                    </span>
-                  )}
-                  {verificationStatus === "pending" && (
-                    <span className="flex items-center gap-1 font-mono text-[10px]" style={{ color: "#C8861A" }}>
-                      <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#C8861A" }} />
-                      Under Review
-                    </span>
-                  )}
+                  {verificationStatus === "verified" && <StatusChip tone="verified">Verified</StatusChip>}
+                  {verificationStatus === "pending" && <StatusChip tone="pending">Under review</StatusChip>}
                   {(verificationStatus === "unverified" || verificationStatus === "rejected") && (
-                    <button onClick={() => setShowVerification(true)}
-                      className="flex items-center gap-1 font-mono text-[10px] transition-opacity hover:opacity-80"
-                      style={{ color: verificationStatus === "rejected" ? "#E84545" : "#E84545" }}>
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#E84545" }} />
-                      {verificationStatus === "rejected" ? "Rejected — Resubmit" : "Not Verified"}
-                    </button>
+                    <StatusChip
+                      tone={verificationStatus === "rejected" ? "rejected" : "unverified"}
+                      onClick={() => setShowVerification(true)}
+                    >
+                      {verificationStatus === "rejected" ? "Resubmit verification" : "Not verified"}
+                    </StatusChip>
                   )}
                 </div>
-                <h1 className="font-serif" style={{ fontSize: "clamp(22px, 3vw, 32px)", color: "var(--color-cream)" }}>
+                <h1 className="font-serif tracking-tight" style={{ fontSize: "clamp(26px, 3.2vw, 36px)", color: "var(--color-cream)", fontWeight: 400, lineHeight: 1.15 }}>
                   {tab === "overview" ? `${greetingForHour()}, ${firstName}` : NAV.find(n => n.id === tab)?.label}
                 </h1>
                 {tab === "overview" && (
-                  <p className="font-sans text-[13px] mt-1" style={{ color: "#5A5A50" }}>
-                    {displayProfile.trade} · {displayProfile.state}
+                  <p className="font-sans text-[14px] mt-2" style={{ color: "rgba(242,237,223,0.55)" }}>
+                    {displayProfile.trade}
+                    <span style={{ color: "rgba(242,237,223,0.28)" }}> · </span>
+                    {displayProfile.state}
                     {demoMode && (
-                      <span className="ml-2">
+                      <span className="ml-2 inline-flex items-center gap-1.5">
                         <Stars rating={4.8} />
-                        <span className="ml-1">· 127 reviews · 42 jobs completed</span>
+                        <span>· 127 reviews</span>
                       </span>
                     )}
                   </p>
                 )}
               </div>
-              <div className="hidden sm:flex items-center gap-3">
-                <DemoToggle demo={demoMode} onToggle={() => setDemoMode(d => !d)} />
+              <div className="hidden sm:flex items-center gap-3 flex-shrink-0 pb-0.5">
                 {userId && <NotificationBell userId={userId} />}
                 <button
                   onClick={() => setTab("browse")}
-                  className="flex items-center gap-2 h-10 px-5 rounded-xl font-sans text-[14px] font-semibold transition-all duration-200"
-                  style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B", boxShadow: "0 4px 16px rgba(200,134,26,0.25)" }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.filter = "brightness(1.08)")}
+                  className="flex items-center gap-2 h-10 px-5 rounded-xl font-sans text-[13px] font-medium transition-all duration-200"
+                  style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B", boxShadow: "0 6px 20px rgba(200,134,26,0.22)" }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.filter = "brightness(1.06)")}
                   onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.filter = "none")}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                  </svg>
                   Find Jobs
                 </button>
               </div>
@@ -641,24 +668,8 @@ export default function ArtisanDashboard() {
             )}
           </AnimatePresence>
 
-          {/* Demo banner */}
           <AnimatePresence>
-            {demoMode && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="flex items-center justify-between px-6 lg:px-10 py-2.5 text-[12px] font-sans"
-                style={{ backgroundColor: "rgba(200,134,26,0.07)", borderBottom: "1px solid rgba(200,134,26,0.12)" }}
-              >
-                <span style={{ color: "var(--color-ochre)" }}>
-                  ✦ Showing sample data — toggle <strong>Live</strong> to see real jobs in your area
-                </span>
-                <button onClick={() => setDemoMode(false)} className="font-semibold underline underline-offset-2" style={{ color: "var(--color-ochre)" }}>
-                  Switch to Live
-                </button>
-              </motion.div>
-            )}
+            {isPreviewSession && <DemoPreviewBanner role="artisan" />}
           </AnimatePresence>
 
           <div className="px-6 lg:px-10 py-8 pb-24 lg:pb-8">
@@ -706,34 +717,33 @@ export default function ArtisanDashboard() {
                   )}
 
                   {/* Stats */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
                     {[
                       { label: "Jobs Available", value: displayJobs.length.toString(), sub: "Near you", accent: "#C8861A", glow: "rgba(200,134,26,0.12)" },
-                      { label: "Bids Sent", value: displayMyBids.length.toString(), sub: "This week", accent: "#3B82F6", glow: "rgba(59,130,246,0.1)" },
-                      { label: "Jobs Won", value: displayMyBids.filter(b => b.status === "accepted").length.toString(), sub: "All time", accent: "#2ECC6A", glow: "rgba(46,204,106,0.1)" },
-                      { label: "Total Earned", value: demoMode ? "₦248k" : `₦${displayTransactions.filter(t => t.status === "paid").reduce((s, t) => s + Number(t.amount.replace(/[^0-9]/g, "")), 0).toLocaleString()}`, sub: "All time", accent: "#F59E0B", glow: "rgba(245,158,11,0.1)" },
+                      { label: "Bids Sent", value: displayMyBids.length.toString(), sub: "This week", accent: "#E8A040", glow: "rgba(232,160,64,0.1)" },
+                      { label: "Jobs Won", value: displayMyBids.filter(b => b.status === "accepted").length.toString(), sub: "All time", accent: "#C8861A", glow: "rgba(200,134,26,0.1)" },
+                      { label: "Total Earned", value: demoMode ? "₦248k" : `₦${displayTransactions.filter(t => t.status === "paid").reduce((s, t) => s + Number(t.amount.replace(/[^0-9]/g, "")), 0).toLocaleString()}`, sub: "All time", accent: "#E8A040", glow: "rgba(232,160,64,0.1)" },
                     ].map((stat, i) => (
                       <motion.div key={stat.label}
-                        initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-                        whileHover={{ y: -2 }}
-                        className="rounded-2xl p-5"
-                        style={{ background: `linear-gradient(135deg, ${stat.glow} 0%, transparent 100%)`, border: `1px solid ${stat.glow}` }}
+                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                        className="rounded-2xl px-5 py-5"
+                        style={{ background: `linear-gradient(145deg, ${stat.glow} 0%, rgba(17,17,16,0.6) 70%)`, border: `1px solid ${stat.glow}` }}
                       >
-                        <p className="font-mono text-[11px] uppercase tracking-wider mb-3" style={{ color: stat.accent }}>{stat.sub}</p>
-                        <p className="font-serif mb-1" style={{ fontSize: "34px", color: "var(--color-cream)", lineHeight: 1 }}>{stat.value}</p>
-                        <p className="font-sans text-[13px]" style={{ color: "rgba(242,237,223,0.45)" }}>{stat.label}</p>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.14em] mb-4" style={{ color: stat.accent }}>{stat.sub}</p>
+                        <p className="font-serif mb-1.5" style={{ fontSize: "clamp(26px, 2.5vw, 30px)", color: "var(--color-cream)", lineHeight: 1, fontWeight: 400 }}>{stat.value}</p>
+                        <p className="font-sans text-[13px]" style={{ color: "rgba(242,237,223,0.5)" }}>{stat.label}</p>
                       </motion.div>
                     ))}
                   </div>
 
                   {/* Quick apply jobs */}
-                  <div className="mb-8">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="font-sans text-[16px] font-semibold" style={{ color: "var(--color-cream)" }}>Jobs Near You</h2>
-                      <button onClick={() => setTab("browse")} className="font-sans text-[13px] transition-colors" style={{ color: "#5A5A50" }}
+                  <div className="mb-10">
+                    <div className="flex items-baseline justify-between mb-5">
+                      <h2 className="font-serif text-[22px]" style={{ color: "var(--color-cream)", fontWeight: 400 }}>Jobs near you</h2>
+                      <button onClick={() => setTab("browse")} className="font-sans text-[13px] transition-colors" style={{ color: "rgba(242,237,223,0.45)" }}
                         onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = "var(--color-ochre)")}
-                        onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "#5A5A50")}
-                      >Browse all →</button>
+                        onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = "rgba(242,237,223,0.45)")}
+                      >Browse all</button>
                     </div>
                     {displayJobs.length === 0 ? (
                       <div className="rounded-2xl px-5 py-10 text-center" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
@@ -754,7 +764,7 @@ export default function ArtisanDashboard() {
                   {/* Active job */}
                   {displayActiveJobs.length > 0 && (
                     <div>
-                      <h2 className="font-sans text-[16px] font-semibold mb-4" style={{ color: "var(--color-cream)" }}>Active Job</h2>
+                      <h2 className="font-serif text-[22px] mb-5" style={{ color: "var(--color-cream)", fontWeight: 400 }}>Active job</h2>
                       {displayActiveJobs.map(job => (
                         <ActiveJobCard key={job.id} job={job} onSubmitProof={() => setProofJob({ jobId: job.jobId, bidId: job.id, title: job.title })} />
                       ))}
@@ -766,9 +776,9 @@ export default function ArtisanDashboard() {
               {tab === "browse" && (
                 <motion.div key="browse" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
                   <div className="flex items-center justify-between mb-5">
-                    <h2 className="font-sans text-[16px] font-semibold" style={{ color: "var(--color-cream)" }}>
-                      Available Jobs <span className="font-mono text-[13px] ml-1" style={{ color: "#5A5A50" }}>({visibleJobs.length})</span>
-                    </h2>
+                  <h2 className="font-serif text-[22px] mb-5" style={{ color: "var(--color-cream)", fontWeight: 400 }}>
+                    Available jobs <span className="font-mono text-[13px] ml-1" style={{ color: "rgba(242,237,223,0.35)" }}>({visibleJobs.length})</span>
+                  </h2>
                   </div>
                   {/* Category filter chips */}
                   <div className="flex gap-2 flex-wrap mb-6">
@@ -815,8 +825,8 @@ export default function ArtisanDashboard() {
 
               {tab === "mybids" && (
                 <motion.div key="mybids" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-                  <h2 className="font-sans text-[16px] font-semibold mb-5" style={{ color: "var(--color-cream)" }}>
-                    My Bids <span className="font-mono text-[13px] ml-1" style={{ color: "#5A5A50" }}>({displayMyBids.length})</span>
+                  <h2 className="font-serif text-[22px] mb-5" style={{ color: "var(--color-cream)", fontWeight: 400 }}>
+                    My bids <span className="font-mono text-[13px] ml-1" style={{ color: "rgba(242,237,223,0.35)" }}>({displayMyBids.length})</span>
                   </h2>
                   {displayMyBids.length === 0 ? (
                     <div className="rounded-2xl px-5 py-12 text-center" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
@@ -850,10 +860,10 @@ export default function ArtisanDashboard() {
                             </div>
                             <div className="flex items-center gap-4 flex-shrink-0">
                               <span className="font-mono text-[14px] font-semibold" style={{ color: "var(--color-ochre)" }}>{bid.myPrice}</span>
-                              <span className="font-sans text-[11px] rounded-full px-3 py-1 font-semibold"
-                                style={{ backgroundColor: cfg.bg, color: cfg.color }}>
-                                {cfg.label}
-                              </span>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.1em] rounded-md px-2.5 py-1"
+                              style={{ backgroundColor: cfg?.bg ?? "transparent", color: cfg?.color ?? "var(--color-cream)", border: `1px solid ${cfg?.border ?? "rgba(242,237,223,0.18)"}` }}>
+                              {cfg?.label ?? bid.status}
+                            </span>
                             </div>
                           </motion.div>
                         );
@@ -865,7 +875,7 @@ export default function ArtisanDashboard() {
 
               {tab === "active" && (
                 <motion.div key="active" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-                  <h2 className="font-sans text-[16px] font-semibold mb-5" style={{ color: "var(--color-cream)" }}>Active Jobs</h2>
+                  <h2 className="font-serif text-[22px] mb-5" style={{ color: "var(--color-cream)", fontWeight: 400 }}>Active jobs</h2>
                   {displayActiveJobs.length === 0 ? (
                     <p className="font-sans text-[14px]" style={{ color: "#5A5A50" }}>No active jobs yet.</p>
                   ) : (
@@ -902,25 +912,25 @@ export default function ArtisanDashboard() {
                           style={{ background: "linear-gradient(135deg, rgba(200,134,26,0.15) 0%, rgba(200,134,26,0.04) 100%)", border: "1px solid rgba(200,134,26,0.2)" }}>
                           <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl pointer-events-none"
                             style={{ background: "rgba(200,134,26,0.12)", transform: "translate(40%, -40%)" }} />
-                          <p className="font-mono text-[11px] uppercase tracking-widest mb-1" style={{ color: "var(--color-ochre)" }}>Total Earned</p>
-                          <p className="font-serif mb-1" style={{ fontSize: "48px", color: "var(--color-cream)", lineHeight: 1 }}>₦{totalEarned.toLocaleString()}</p>
-                          <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>Across {jobsWon} completed jobs</p>
+                          <p className="font-mono text-[10px] uppercase tracking-[0.14em] mb-2" style={{ color: "var(--color-ochre)" }}>Total earned</p>
+                          <p className="font-serif mb-2" style={{ fontSize: "clamp(36px, 4vw, 44px)", color: "var(--color-cream)", lineHeight: 1, fontWeight: 400 }}>₦{totalEarned.toLocaleString()}</p>
+                          <p className="font-sans text-[13px]" style={{ color: "rgba(242,237,223,0.45)" }}>Across {jobsWon} completed jobs</p>
                         </div>
                         <div className="flex flex-col gap-3">
                           <div className="rounded-2xl p-4 flex-1" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
-                            <p className="font-sans text-[11px] uppercase tracking-wider mb-1" style={{ color: "rgba(242,237,223,0.4)" }}>This Month</p>
-                            <p className="font-mono text-[22px] font-semibold" style={{ color: "#2ECC6A" }}>₦{thisMonth.toLocaleString()}</p>
+                            <p className="font-mono text-[10px] uppercase tracking-[0.12em] mb-1" style={{ color: "rgba(242,237,223,0.4)" }}>This month</p>
+                            <p className="font-serif text-[22px]" style={{ color: "var(--color-cream)" }}>₦{thisMonth.toLocaleString()}</p>
                           </div>
                           <div className="rounded-2xl p-4 flex-1" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
-                            <p className="font-sans text-[11px] uppercase tracking-wider mb-1" style={{ color: "rgba(242,237,223,0.4)" }}>In Escrow</p>
-                            <p className="font-mono text-[22px] font-semibold" style={{ color: "#3B82F6" }}>₦{inEscrow.toLocaleString()}</p>
+                            <p className="font-mono text-[10px] uppercase tracking-[0.12em] mb-1" style={{ color: "rgba(242,237,223,0.4)" }}>In escrow</p>
+                            <p className="font-serif text-[22px]" style={{ color: "var(--color-ochre)" }}>₦{inEscrow.toLocaleString()}</p>
                           </div>
                         </div>
                       </div>
                     );
                   })()}
 
-                  <h2 className="font-sans text-[16px] font-semibold mb-4" style={{ color: "var(--color-cream)" }}>Transactions</h2>
+                  <h2 className="font-serif text-[22px] mb-5" style={{ color: "var(--color-cream)", fontWeight: 400 }}>Transactions</h2>
                   <div className="flex flex-col gap-2">
                     {displayTransactions.length === 0 && !demoMode ? (
                       <p className="font-sans text-[14px] py-8 text-center" style={{ color: "#5A5A50" }}>No transactions yet.</p>
@@ -937,8 +947,8 @@ export default function ArtisanDashboard() {
                           <p className="font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.4)" }}>{t.date}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-mono text-[15px] font-semibold" style={{ color: t.status === "escrow" ? "#3B82F6" : "#2ECC6A" }}>{t.amount}</p>
-                          <span className="font-sans text-[11px]" style={{ color: t.status === "escrow" ? "#3B82F6" : "rgba(242,237,223,0.4)" }}>
+                          <p className="font-serif text-[17px]" style={{ color: t.status === "escrow" ? "var(--color-ochre)" : "var(--color-cream)" }}>{t.amount}</p>
+                          <span className="font-mono text-[10px] uppercase tracking-[0.1em]" style={{ color: t.status === "escrow" ? "var(--color-ochre)" : "rgba(242,237,223,0.4)" }}>
                             {t.status === "escrow" ? "In escrow" : "Paid"}
                           </span>
                         </div>
@@ -968,24 +978,24 @@ export default function ArtisanDashboard() {
                           )}
                         </div>
                         {verificationStatus === "verified" && (
-                          <div className="ml-auto flex items-center gap-1.5 font-sans text-[12px] rounded-full px-3 py-1" style={{ backgroundColor: "rgba(46,204,106,0.1)", color: "#2ECC6A", border: "1px solid rgba(46,204,106,0.2)" }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                            Verified
+                          <div className="ml-auto">
+                            <StatusChip tone="verified">Verified</StatusChip>
                           </div>
                         )}
                         {verificationStatus === "pending" && (
-                          <div className="ml-auto flex items-center gap-1.5 font-sans text-[12px] rounded-full px-3 py-1" style={{ backgroundColor: "rgba(200,134,26,0.1)", color: "var(--color-ochre)", border: "1px solid rgba(200,134,26,0.2)" }}>
-                            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "var(--color-ochre)" }} />
-                            Under Review
+                          <div className="ml-auto">
+                            <StatusChip tone="pending">Under review</StatusChip>
                           </div>
                         )}
                         {(verificationStatus === "unverified" || verificationStatus === "rejected") && (
-                          <button onClick={() => setShowVerification(true)}
-                            className="ml-auto flex items-center gap-1.5 font-sans text-[12px] rounded-full px-3 py-1 transition-opacity hover:opacity-80"
-                            style={{ backgroundColor: "rgba(232,69,69,0.08)", color: "#E84545", border: "1px solid rgba(232,69,69,0.15)" }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                            {verificationStatus === "rejected" ? "Resubmit" : "Verify Now"}
-                          </button>
+                          <div className="ml-auto">
+                            <StatusChip
+                              tone={verificationStatus === "rejected" ? "rejected" : "unverified"}
+                              onClick={() => setShowVerification(true)}
+                            >
+                              {verificationStatus === "rejected" ? "Resubmit" : "Verify"}
+                            </StatusChip>
+                          </div>
                         )}
                       </div>
                       {[
@@ -1115,8 +1125,8 @@ function SidebarContent({
   return (
     <>
       <div className="flex items-center justify-between px-5 h-16 border-b flex-shrink-0" style={{ borderColor: "#1E1E1A" }}>
-        <Link href="/" className="font-serif text-[20px]" style={{ color: "var(--color-ochre)" }}>FIXORA</Link>
-        <span className="font-sans text-[10px] rounded-full px-2 py-0.5 font-semibold" style={{ backgroundColor: "rgba(46,204,106,0.1)", color: "#2ECC6A", border: "1px solid rgba(46,204,106,0.2)" }}>
+        <Link href="/" className="font-serif text-[20px]" style={{ color: "var(--color-cream)" }}>FIXORA</Link>
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: "rgba(242,237,223,0.4)" }}>
           Artisan
         </span>
       </div>
@@ -1127,20 +1137,20 @@ function SidebarContent({
           return (
             <button key={item.id}
               onClick={() => { setTab(item.id); setSidebarOpen(false); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 transition-all duration-200 cursor-pointer"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 transition-all duration-200 cursor-pointer"
               style={{
-                background: active ? "linear-gradient(135deg, rgba(200,134,26,0.15), rgba(200,134,26,0.05))" : "transparent",
-                color: active ? "var(--color-ochre)" : "#5A5A50",
-                border: active ? "1px solid rgba(200,134,26,0.2)" : "1px solid transparent",
+                background: active ? "rgba(242,237,223,0.06)" : "transparent",
+                color: active ? "var(--color-cream)" : "rgba(242,237,223,0.4)",
+                border: active ? "1px solid rgba(242,237,223,0.12)" : "1px solid transparent",
               }}
               onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-cream)"; (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(255,255,255,0.03)"; } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.color = "#5A5A50"; (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent"; } }}
+              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLButtonElement).style.color = "rgba(242,237,223,0.4)"; (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent"; } }}
             >
               {item.icon}
-              <span className="font-sans text-[14px] font-medium">{item.label}</span>
+              <span className="font-sans text-[14px]">{item.label}</span>
               {item.id === "active" && activeJobCount > 0 ? (
-                <span className="ml-auto text-[11px] font-mono rounded-full px-2 py-0.5 font-semibold"
-                  style={{ backgroundColor: "rgba(200,134,26,0.15)", color: "var(--color-ochre)" }}>
+                <span className="ml-auto text-[11px] font-mono rounded-md px-2 py-0.5"
+                  style={{ backgroundColor: "rgba(200,134,26,0.12)", color: "var(--color-ochre)", border: "1px solid rgba(200,134,26,0.25)" }}>
                   {activeJobCount}
                 </span>
               ) : null}
@@ -1150,15 +1160,15 @@ function SidebarContent({
         <Link
           href="/messages"
           onClick={() => setSidebarOpen(false)}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 transition-all duration-200"
-          style={{ color: "#5A5A50", border: "1px solid transparent" }}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 transition-all duration-200"
+          style={{ color: "rgba(242,237,223,0.4)", border: "1px solid transparent" }}
           onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--color-cream)"; (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "rgba(255,255,255,0.03)"; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "#5A5A50"; (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = "rgba(242,237,223,0.4)"; (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"; }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
           </svg>
-          <span className="font-sans text-[14px] font-medium">Messages</span>
+          <span className="font-sans text-[14px]">Messages</span>
         </Link>
       </nav>
 
@@ -1239,19 +1249,18 @@ function JobCard({ job, submitted, onBid, index }: {
       </div>
 
       {submitted ? (
-        <div className="flex items-center gap-2 h-9 px-4 rounded-xl font-sans text-[13px] font-semibold"
-          style={{ backgroundColor: "rgba(46,204,106,0.08)", color: "#2ECC6A", border: "1px solid rgba(46,204,106,0.15)" }}>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="2 7 5.5 10.5 12 3.5"/></svg>
+        <div className="flex items-center gap-2 h-9 px-4 rounded-xl font-sans text-[13px]"
+          style={{ backgroundColor: "rgba(242,237,223,0.06)", color: "var(--color-cream)", border: "1px solid rgba(242,237,223,0.18)" }}>
           Quote submitted — ₦{Number(submitted).toLocaleString()}
         </div>
       ) : (
         <motion.button
-          whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+          whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
           onClick={onBid}
-          className="h-9 px-5 rounded-xl font-sans text-[13px] font-semibold w-full transition-all duration-200"
+          className="h-9 px-5 rounded-xl font-sans text-[13px] font-medium w-full transition-all duration-200"
           style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}
         >
-          {job.budgetType === "fixed" ? "Accept Price / Send Quote" : "Submit Quote"}
+          {job.budgetType === "fixed" ? "Accept price / send quote" : "Submit quote"}
         </motion.button>
       )}
     </motion.div>
@@ -1268,37 +1277,41 @@ function ActiveJobCard({
   onSubmitProof?: () => void;
 }) {
   const canSubmit = job.completionStatus === "none" || job.completionStatus === "rejected";
+  const statusLabel =
+    job.completionStatus === "submitted" ? "Awaiting review"
+    : job.completionStatus === "approved" ? "Paid"
+    : job.completionStatus === "rejected" ? "Needs resubmit"
+    : "In progress";
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl p-5"
-      style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.06), rgba(59,130,246,0.02))", border: "1px solid rgba(59,130,246,0.15)" }}
+      className="rounded-2xl p-5 mb-3"
+      style={{ background: "linear-gradient(145deg, rgba(200,134,26,0.08) 0%, rgba(17,17,16,0.9) 55%)", border: "1px solid rgba(200,134,26,0.18)" }}
     >
       <div className="flex items-start justify-between gap-4 mb-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: "#3B82F6" }} />
-            <span className="font-mono text-[11px]" style={{ color: "#3B82F6" }}>
-              {job.completionStatus === "submitted" ? "AWAITING ADMIN REVIEW" : job.completionStatus === "approved" ? "PAID" : "IN PROGRESS"}
-            </span>
+        <div className="min-w-0">
+          <div className="mb-2">
+            <StatusChip tone={job.completionStatus === "approved" ? "verified" : job.completionStatus === "rejected" ? "rejected" : "active"}>
+              {statusLabel}
+            </StatusChip>
           </div>
-          <h3 className="font-sans text-[16px] font-semibold" style={{ color: "var(--color-cream)" }}>{job.title}</h3>
-          <p className="font-sans text-[13px] mt-0.5" style={{ color: "rgba(242,237,223,0.45)" }}>{job.location} · Started {job.started}</p>
+          <h3 className="font-serif text-[18px]" style={{ color: "var(--color-cream)", fontWeight: 400 }}>{job.title}</h3>
+          <p className="font-sans text-[13px] mt-1" style={{ color: "rgba(242,237,223,0.45)" }}>{job.location} · Started {job.started}</p>
         </div>
-        <p className="font-mono text-[18px] font-semibold flex-shrink-0" style={{ color: "#2ECC6A" }}>{job.amount}</p>
+        <p className="font-serif text-[22px] flex-shrink-0" style={{ color: "var(--color-cream)" }}>{job.amount}</p>
       </div>
 
       {/* Progress bar */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="font-sans text-[12px]" style={{ color: "#5A5A50" }}>Job progress</span>
-          <span className="font-mono text-[12px]" style={{ color: "#3B82F6" }}>{job.progress}%</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em]" style={{ color: "rgba(242,237,223,0.4)" }}>Progress</span>
+          <span className="font-mono text-[12px]" style={{ color: "var(--color-ochre)" }}>{job.progress}%</span>
         </div>
-        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: "#1E1E1A" }}>
+        <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(242,237,223,0.08)" }}>
           <motion.div
             className="h-full rounded-full"
-            style={{ background: "linear-gradient(90deg, #3B82F6, #60A5FA)" }}
+            style={{ background: "linear-gradient(90deg, #C8861A, #E8A040)" }}
             initial={{ width: "0%" }}
             animate={{ width: `${job.progress}%` }}
             transition={{ duration: 1, ease: "easeOut", delay: 0.3 }}
@@ -1319,9 +1332,9 @@ function ActiveJobCard({
 
       {canSubmit && onSubmitProof && (
         <motion.button
-          whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+          whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
           onClick={onSubmitProof}
-          className="w-full h-10 rounded-xl font-sans text-[13px] font-semibold mb-4"
+          className="w-full h-10 rounded-xl font-sans text-[13px] font-medium mb-4"
           style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}
         >
           {job.completionStatus === "rejected" ? "Resubmit proof of work" : "Submit proof of work"}
@@ -1330,16 +1343,15 @@ function ActiveJobCard({
 
       {detailed && (
         <div className="flex items-center gap-3">
-          <div className="flex-1 rounded-xl p-3" style={{ backgroundColor: "#111110", border: "1px solid #1E1E1A" }}>
-            <p className="font-sans text-[11px] mb-0.5" style={{ color: "#5A5A50" }}>Customer</p>
-            <p className="font-sans text-[13px] font-medium" style={{ color: "var(--color-cream)" }}>{job.customer}</p>
+          <div className="flex-1 rounded-xl p-3" style={{ backgroundColor: "rgba(13,13,11,0.5)", border: "1px solid #1E1E1A" }}>
+            <p className="font-mono text-[10px] uppercase tracking-[0.12em] mb-1" style={{ color: "rgba(242,237,223,0.4)" }}>Customer</p>
+            <p className="font-sans text-[13px]" style={{ color: "var(--color-cream)" }}>{job.customer}</p>
           </div>
           {job.phone && (
             <a href={`tel:${job.phone}`}
-              className="flex items-center justify-center gap-2 h-full rounded-xl px-4 font-sans text-[13px] font-semibold"
-              style={{ backgroundColor: "rgba(46,204,106,0.08)", color: "#2ECC6A", border: "1px solid rgba(46,204,106,0.15)" }}
+              className="flex items-center justify-center gap-2 h-full rounded-xl px-4 font-sans text-[13px] font-medium"
+              style={{ backgroundColor: "rgba(200,134,26,0.1)", color: "var(--color-ochre)", border: "1px solid rgba(200,134,26,0.25)" }}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 6 6l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.72 16z"/></svg>
               Call
             </a>
           )}

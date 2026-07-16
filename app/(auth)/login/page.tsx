@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { clearDemoSession, DEMO_ROUTES, setDemoSession, type DemoRole } from "@/lib/demo-session";
+import BrandLogo from "@/components/shared/BrandLogo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -60,9 +60,7 @@ export default function LoginPage() {
         />
 
         <Link href="/">
-          <div className="inline-flex rounded-xl p-2" style={{ backgroundColor: "#fff" }}>
-              <Image src="/Logo no bcakground.png" alt="FIXORA" width={112} height={112} className="rounded-lg" />
-            </div>
+          <BrandLogo size={112} href={null} />
         </Link>
 
         <div>
@@ -91,9 +89,7 @@ export default function LoginPage() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-16">
         {/* Mobile logo */}
         <Link href="/" className="lg:hidden mb-10">
-          <div className="inline-flex rounded-xl p-2" style={{ backgroundColor: "#fff" }}>
-              <Image src="/Logo no bcakground.png" alt="FIXORA" width={96} height={96} className="rounded-lg" />
-            </div>
+          <BrandLogo size={88} href={null} />
         </Link>
 
         <motion.div
@@ -239,10 +235,10 @@ export default function LoginPage() {
           {/* Demo exploration logins */}
           <div className="mt-8 pt-6 border-t" style={{ borderColor: "var(--color-border)" }}>
             <p className="font-mono text-[10px] uppercase tracking-widest text-center mb-3" style={{ color: "var(--color-muted)" }}>
-              Demo access
+              Preview dashboards
             </p>
             <p className="font-sans text-[12px] text-center mb-4 leading-relaxed" style={{ color: "var(--color-muted)" }}>
-              Explore dashboards with sample data — no account needed
+              Explore with sample data — no account required
             </p>
             <div className="flex flex-col gap-2">
               {([

@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { fadeUp } from "@/lib/motion";
 import OchreButton from "@/components/shared/OchreButton";
 import CtaBanner from "@/components/home/CtaBanner";
+import BrandLogo from "@/components/shared/BrandLogo";
 
 const values = [
   {
@@ -51,13 +52,7 @@ export default function AboutPage() {
             animate="visible"
             className="mb-6 flex justify-center"
           >
-            <Image
-              src="/Logo no bcakground.png"
-              alt="FIXORA"
-              width={120}
-              height={120}
-              className="rounded-2xl"
-            />
+            <BrandLogo size={108} href={null} />
           </motion.div>
 
           <motion.p

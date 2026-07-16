@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, Briefcase, Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { clearDemoSession } from "@/lib/demo-session";
 import CategorySelect from "@/components/CategorySelect";
+import BrandLogo from "@/components/shared/BrandLogo";
 
 type Role = "customer" | "artisan";
 
@@ -92,11 +92,7 @@ export default function SignupPage() {
         />
 
         {/* Logo */}
-        <Link href="/" className="inline-flex">
-          <div className="inline-flex rounded-xl p-1.5" style={{ backgroundColor: "#fff" }}>
-            <Image src="/Logo no bcakground.png" alt="FIXORA" width={52} height={52} className="rounded-lg" />
-          </div>
-        </Link>
+        <BrandLogo size={52} />
 
         {/* Middle content */}
         <div>
@@ -138,11 +134,9 @@ export default function SignupPage() {
 
       {/* Right panel */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 overflow-y-auto">
-        <Link href="/" className="lg:hidden mb-10">
-          <div className="inline-flex rounded-xl p-2" style={{ backgroundColor: "#fff" }}>
-              <Image src="/Logo no bcakground.png" alt="FIXORA" width={96} height={96} className="rounded-lg" />
-            </div>
-        </Link>
+        <div className="lg:hidden mb-10">
+          <BrandLogo size={88} />
+        </div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import BrandLogo from "@/components/shared/BrandLogo";
 
 const sections = [
   {
@@ -77,9 +77,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand column */}
           <div className="lg:col-span-1">
-            <div className="inline-flex rounded-xl p-2" style={{ backgroundColor: "#fff" }}>
-              <Image src="/Logo no bcakground.png" alt="FIXORA" width={160} height={160} className="rounded-lg" />
-            </div>
+            <BrandLogo size={72} />
             <p className="mt-4 font-sans text-[14px] leading-relaxed max-w-xs" style={{ color: "var(--color-muted)" }}>
               Nigeria&apos;s smart marketplace connecting customers with verified artisans nationwide.
             </p>
