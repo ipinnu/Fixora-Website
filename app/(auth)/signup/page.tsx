@@ -72,11 +72,20 @@ export default function SignupPage() {
   };
 
   const handleGoogle = async () => {
-    const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
+    setError("");
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) setError(error.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -341,6 +350,7 @@ export default function SignupPage() {
           <motion.button
             type="button"
             onClick={handleGoogle}
+            disabled={loading}
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
             transition={{ type: "spring" as const, stiffness: 400, damping: 20 }}
