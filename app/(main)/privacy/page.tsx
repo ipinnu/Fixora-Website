@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
+import {
+  OFFICIAL_PHONE_DISPLAY,
+  officialPhoneTel,
+} from "@/lib/site-contact";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — FIXORA",
@@ -14,7 +18,7 @@ const SECTIONS = [
   { title: "6. Cookies", body: "We use essential cookies for authentication and session management. We do not use advertising or tracking cookies." },
   { title: "7. Children's Privacy", body: "FIXORA is not intended for users under 18. We do not knowingly collect data from minors." },
   { title: "8. Security", body: "We use industry-standard encryption (TLS/SSL), row-level security in our database, and secure payment processing via Paystack. We never store card details." },
-  { title: "9. Contact", body: "For privacy concerns, contact our Data Protection Officer at privacy@fixora.ng or write to: FIXORA, Lagos, Nigeria." },
+  { title: "9. Contact", body: "For privacy concerns, contact our Data Protection Officer at privacy@fixora.ng, call +234 811 281 8859, or write to: FIXORA, Lagos, Nigeria." },
 ];
 
 export default function PrivacyPage() {
@@ -38,6 +42,8 @@ export default function PrivacyPage() {
           <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>
             Privacy questions? Email{" "}
             <a href="mailto:privacy@fixora.ng" style={{ color: "var(--color-ochre)" }}>privacy@fixora.ng</a>
+            {" "}or call{" "}
+            <a href={officialPhoneTel} style={{ color: "var(--color-ochre)" }}>{OFFICIAL_PHONE_DISPLAY}</a>
           </p>
         </div>
       </div>

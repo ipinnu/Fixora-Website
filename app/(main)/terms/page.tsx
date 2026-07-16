@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
+import {
+  OFFICIAL_PHONE_DISPLAY,
+  officialPhoneTel,
+} from "@/lib/site-contact";
 
 export const metadata: Metadata = {
   title: "Terms of Service — FIXORA",
@@ -39,6 +43,8 @@ export default function TermsPage() {
           <p className="font-sans text-[13px]" style={{ color: "#5A5A50" }}>
             Questions? Contact us at{" "}
             <a href="mailto:legal@fixora.ng" style={{ color: "var(--color-ochre)" }}>legal@fixora.ng</a>
+            {" "}or call{" "}
+            <a href={officialPhoneTel} style={{ color: "var(--color-ochre)" }}>{OFFICIAL_PHONE_DISPLAY}</a>
           </p>
         </div>
       </div>

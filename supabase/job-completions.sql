@@ -40,12 +40,18 @@ create policy "completions: participant read"
   using (
     auth.uid() = artisan_id
     or auth.uid() in (select customer_id from public.jobs where id = job_id)
-    or (auth.jwt() ->> 'email') = 'ipinnu.oladipo23@gmail.com'
+    or (auth.jwt() ->> 'email') in (
+      'ipinnu.oladipo23@gmail.com',
+      'fixoraglobalhub@gmail.com'
+    )
   );
 
 create policy "completions: admin update"
   on public.job_completions for update
-  using ((auth.jwt() ->> 'email') = 'ipinnu.oladipo23@gmail.com');
+  using ((auth.jwt() ->> 'email') in (
+    'ipinnu.oladipo23@gmail.com',
+    'fixoraglobalhub@gmail.com'
+  ));
 
 create policy "transactions: customer insert"
   on public.transactions for insert
@@ -53,7 +59,10 @@ create policy "transactions: customer insert"
 
 create policy "transactions: admin update"
   on public.transactions for update
-  using ((auth.jwt() ->> 'email') = 'ipinnu.oladipo23@gmail.com');
+  using ((auth.jwt() ->> 'email') in (
+    'ipinnu.oladipo23@gmail.com',
+    'fixoraglobalhub@gmail.com'
+  ));
 
 -- Storage for completion photos
 insert into storage.buckets (id, name, public)

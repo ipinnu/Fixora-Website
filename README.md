@@ -34,3 +34,21 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Future Plans
+
+### Authentication (MVP → Clerk)
+
+- **MVP:** Supabase email/password sign-up and login. Admin access is an email allowlist in `lib/admin.ts` (not role metadata in the database yet).
+- **Later:** Migrate to [Clerk](https://clerk.com/) for auth (sessions, orgs, social providers). When that ships, remove the hardcoded admin allowlist and use Clerk roles or organization membership instead.
+
+**Current admin emails** (must match Supabase accounts; `/admin` also requires RLS policies — run `supabase/patch-admin-emails.sql` on existing projects):
+
+- `ipinnu.oladipo23@gmail.com`
+- `fixoraglobalhub@gmail.com`
+
+**Official contact:** `fixoraglobalhub@gmail.com` · `+234 811 281 8859`
+
+### Social sign-in
+
+- Google OAuth is intentionally not shown in the live product. Reintroduce after provider setup, or defer until the Clerk migration.

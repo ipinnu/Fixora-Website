@@ -47,7 +47,10 @@ create policy "verifications: authenticated read"
 
 create policy "verifications: admin update"
   on public.artisan_verifications for update
-  using ((auth.jwt() ->> 'email') = 'ipinnu.oladipo23@gmail.com');
+  using ((auth.jwt() ->> 'email') in (
+    'ipinnu.oladipo23@gmail.com',
+    'fixoraglobalhub@gmail.com'
+  ));
 
 -- Storage bucket for ID and face images (public read for admin review UI)
 insert into storage.buckets (id, name, public)

@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 import BrandLogo from "@/components/shared/BrandLogo";
+import {
+  OFFICIAL_EMAIL,
+  OFFICIAL_PHONE_DISPLAY,
+  officialEmailMailto,
+  officialPhoneTel,
+} from "@/lib/site-contact";
 
 const sections = [
   {
@@ -25,7 +31,8 @@ const sections = [
     links: [
       { label: "About", href: "/about" },
       { label: "Become an Artisan", href: "/signup" },
-      { label: "Contact Us", href: "mailto:Fixoraglobalhub@gmail.com" },
+      { label: "Call Us", href: officialPhoneTel },
+      { label: "Contact Us", href: officialEmailMailto },
     ],
   },
   {
@@ -134,15 +141,26 @@ export default function Footer() {
           <p className="font-sans text-[13px]" style={{ color: "var(--color-muted)" }}>
             © 2026 FIXORA. All rights reserved.
           </p>
-          <a
-            href="mailto:Fixoraglobalhub@gmail.com"
-            className="font-sans text-[13px] transition-colors duration-200"
-            style={{ color: "var(--color-muted)" }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--color-ochre)")}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--color-muted)")}
-          >
-            Fixoraglobalhub@gmail.com
-          </a>
+          <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
+            <a
+              href={officialPhoneTel}
+              className="font-sans text-[13px] transition-colors duration-200"
+              style={{ color: "var(--color-muted)" }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--color-ochre)")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--color-muted)")}
+            >
+              {OFFICIAL_PHONE_DISPLAY}
+            </a>
+            <a
+              href={officialEmailMailto}
+              className="font-sans text-[13px] transition-colors duration-200"
+              style={{ color: "var(--color-muted)" }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--color-ochre)")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = "var(--color-muted)")}
+            >
+              {OFFICIAL_EMAIL}
+            </a>
+          </div>
         </div>
       </div>
     </footer>
