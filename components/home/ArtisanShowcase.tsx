@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 import SectionLabel from "@/components/shared/SectionLabel";
 import OchreButton from "@/components/shared/OchreButton";
 
@@ -98,8 +99,8 @@ export default function ArtisanShowcase() {
         {/* Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {artisans.map((a, i) => (
+            <Link key={a.name} href="/artisans" aria-label={`Browse artisans like ${a.name}`}>
             <motion.div
-              key={a.name}
               initial={{ opacity: 0, y: 28 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
@@ -169,6 +170,7 @@ export default function ArtisanShowcase() {
                 </div>
               </div>
             </motion.div>
+            </Link>
           ))}
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -176,6 +176,10 @@ export default function ArtisanDashboard() {
   const [isPreviewSession, setIsPreviewSession] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [profile, setProfile] = useState<ArtisanProfile>(DEMO_PROFILE);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileDraft, setProfileDraft] = useState({ fullName: "", trade: "", state: "", phone: "", bio: "" });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("unverified");
   const [liveJobs, setLiveJobs] = useState<typeof AVAILABLE_JOBS>([]);
   const [liveMyBids, setLiveMyBids] = useState<typeof MY_BIDS>([]);
@@ -235,6 +239,68 @@ export default function ArtisanDashboard() {
       router.replace("/login");
     });
   }, [router]);
+
+  const startProfileEdit = () => {
+    if (demoMode) return;
+    setProfileDraft({
+      fullName: profile.fullName === "Not set" ? "" : profile.fullName,
+      trade: profile.trade === "Not set" ? "" : profile.trade,
+      state: profile.state === "—" ? "" : profile.state,
+      phone: profile.phone === "—" ? "" : profile.phone,
+      bio: profile.bio,
+    });
+    setProfileMessage("");
+    setEditingProfile(true);
+  };
+
+  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!userId) return;
+
+    const next = {
+      fullName: profileDraft.fullName.trim(),
+      trade: profileDraft.trade.trim(),
+      state: profileDraft.state.trim(),
+      phone: profileDraft.phone.trim(),
+      bio: profileDraft.bio.trim(),
+    };
+    if (!next.fullName || !next.trade) {
+      setProfileMessage("Full name and specialty are required.");
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileMessage("");
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: next.fullName,
+        trade: next.trade,
+        state: next.state || null,
+        phone: next.phone || null,
+        bio: next.bio || null,
+      })
+      .eq("id", userId);
+
+    if (error) {
+      setProfileMessage(error.message);
+      setProfileSaving(false);
+      return;
+    }
+
+    setProfile((current) => ({
+      ...current,
+      fullName: next.fullName,
+      trade: next.trade,
+      state: next.state || "—",
+      phone: next.phone || "—",
+      bio: next.bio,
+    }));
+    setEditingProfile(false);
+    setProfileSaving(false);
+    setProfileMessage("Profile updated.");
+  };
 
   function timeAgo(ts: string) {
     const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
@@ -998,7 +1064,7 @@ export default function ArtisanDashboard() {
                           </div>
                         )}
                       </div>
-                      {[
+                      {!editingProfile && [
                         { label: "Specialty", value: displayProfile.trade },
                         { label: "Location", value: displayProfile.state },
                         { label: "Phone", value: displayProfile.phone },
@@ -1025,14 +1091,54 @@ export default function ArtisanDashboard() {
                           <span className="font-sans text-[14px] font-medium text-right max-w-[60%]" style={{ color: "var(--color-cream)" }}>{f.value}</span>
                         </div>
                       ))}
-                      {displayProfile.bio && (
+                      {!editingProfile && displayProfile.bio && (
                         <div className="py-3 border-b" style={{ borderColor: "rgba(200,134,26,0.1)" }}>
                           <p className="font-sans text-[13px] mb-1" style={{ color: "#5A5A50" }}>Bio</p>
                           <p className="font-sans text-[14px] leading-relaxed" style={{ color: "var(--color-cream)" }}>{displayProfile.bio}</p>
                         </div>
                       )}
-                      <p className="mt-5 font-sans text-[12px] leading-relaxed" style={{ color: "#5A5A50" }}>
-                        To update trade, phone, or service details,{" "}
+                      {editingProfile ? (
+                        <form onSubmit={saveProfile} className="mt-5 space-y-4">
+                          {[
+                            { id: "artisan-name", label: "Full name", key: "fullName", required: true },
+                            { id: "artisan-trade", label: "Specialty", key: "trade", required: true },
+                            { id: "artisan-state", label: "State", key: "state", required: false },
+                            { id: "artisan-phone", label: "Phone", key: "phone", required: false },
+                          ].map((field) => (
+                            <label key={field.id} htmlFor={field.id} className="block">
+                              <span className="mb-1.5 block font-sans text-[12px]" style={{ color: "#7A7A6A" }}>{field.label}</span>
+                              <input
+                                id={field.id}
+                                required={field.required}
+                                value={profileDraft[field.key as keyof typeof profileDraft]}
+                                onChange={(event) => setProfileDraft((draft) => ({ ...draft, [field.key]: event.target.value }))}
+                                className="h-11 w-full rounded-xl px-3 font-sans text-[14px] outline-none focus:ring-1"
+                                style={{ backgroundColor: "#0D0D0B", border: "1px solid #2A2A25", color: "var(--color-cream)" }}
+                              />
+                            </label>
+                          ))}
+                          <label htmlFor="artisan-bio" className="block">
+                            <span className="mb-1.5 block font-sans text-[12px]" style={{ color: "#7A7A6A" }}>Bio</span>
+                            <textarea id="artisan-bio" maxLength={300} rows={4} value={profileDraft.bio} onChange={(event) => setProfileDraft((draft) => ({ ...draft, bio: event.target.value }))} className="w-full resize-none rounded-xl p-3 font-sans text-[14px] outline-none focus:ring-1" style={{ backgroundColor: "#0D0D0B", border: "1px solid #2A2A25", color: "var(--color-cream)" }} />
+                            <span className="mt-1 block text-right font-mono text-[10px]" style={{ color: "#5A5A50" }}>{profileDraft.bio.length}/300</span>
+                          </label>
+                          {profileMessage && <p role="alert" className="font-sans text-[12px]" style={{ color: "#E84545" }}>{profileMessage}</p>}
+                          <div className="flex gap-3">
+                            <button type="button" disabled={profileSaving} onClick={() => { setEditingProfile(false); setProfileMessage(""); }} className="h-10 flex-1 rounded-xl font-sans text-[14px] font-semibold" style={{ border: "1px solid #2A2A25", color: "var(--color-cream)" }}>Cancel</button>
+                            <button type="submit" disabled={profileSaving} className="h-10 flex-1 rounded-xl font-sans text-[14px] font-semibold disabled:opacity-60" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>{profileSaving ? "Saving…" : "Save changes"}</button>
+                          </div>
+                        </form>
+                      ) : (
+                        <>
+                          {profileMessage && <p role="status" className="mt-4 font-sans text-[12px]" style={{ color: "#2ECC6A" }}>{profileMessage}</p>}
+                          <button type="button" onClick={startProfileEdit} disabled={demoMode} className="mt-5 h-10 w-full rounded-xl font-sans text-[14px] font-semibold disabled:cursor-not-allowed disabled:opacity-50" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>
+                            {demoMode ? "Editing disabled in preview" : "Edit Profile"}
+                          </button>
+                        </>
+                      )}
+                      {!editingProfile && (
+                      <p className="mt-4 font-sans text-[12px] leading-relaxed" style={{ color: "#5A5A50" }}>
+                        To earn or renew the verified badge,{" "}
                         <button
                           type="button"
                           onClick={() => setShowVerification(true)}
@@ -1043,6 +1149,7 @@ export default function ArtisanDashboard() {
                         </button>
                         {" "}— admin review keeps your public profile trustworthy.
                       </p>
+                      )}
                     </div>
                   </div>
                 </motion.div>

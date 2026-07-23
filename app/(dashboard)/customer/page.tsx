@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -119,6 +119,10 @@ export default function CustomerDashboard() {
   const [liveLoading, setLiveLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileDraft, setProfileDraft] = useState({ fullName: "", state: "", phone: "" });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
 
   useEffect(() => {
     const supabase = createClient();
@@ -157,6 +161,58 @@ export default function CustomerDashboard() {
       router.replace("/login");
     });
   }, [router]);
+
+  const startProfileEdit = () => {
+    if (!profile || demoMode) return;
+    setProfileDraft({
+      fullName: profile.fullName ?? "",
+      state: profile.state ?? "",
+      phone: profile.phone ?? "",
+    });
+    setProfileMessage("");
+    setEditingProfile(true);
+  };
+
+  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!userId) return;
+
+    const fullName = profileDraft.fullName.trim();
+    const state = profileDraft.state.trim();
+    const phone = profileDraft.phone.trim();
+    if (!fullName) {
+      setProfileMessage("Please enter your full name.");
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileMessage("");
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: fullName,
+        state: state || null,
+        phone: phone || null,
+      })
+      .eq("id", userId);
+
+    if (error) {
+      setProfileMessage(error.message);
+      setProfileSaving(false);
+      return;
+    }
+
+    setProfile((current) => current ? {
+      ...current,
+      fullName,
+      state: state || null,
+      phone: phone || null,
+    } : current);
+    setEditingProfile(false);
+    setProfileSaving(false);
+    setProfileMessage("Profile updated.");
+  };
 
   const loadLiveData = useCallback(async () => {
     if (!userId) return;
@@ -578,21 +634,55 @@ export default function CustomerDashboard() {
                           <p className="font-sans text-[13px]" style={{ color: "rgba(242,237,223,0.45)" }}>{profile?.state ? `${profile.state}, Nigeria` : "Nigeria"}</p>
                         </div>
                       </div>
-                      {[
-                        { label: "Full name", value: profile?.fullName ?? "—" },
-                        { label: "Email", value: profile?.email ?? "—" },
-                        { label: "Phone", value: profile?.phone ?? "Not set" },
-                        { label: "Location", value: profile?.state ?? "Not set" },
-                      ].map(field => (
-                        <div key={field.label} className="flex items-center justify-between py-3 border-b" style={{ borderColor: "#1E1E1A" }}>
-                          <span className="font-sans text-[13px]" style={{ color: "rgba(242,237,223,0.4)" }}>{field.label}</span>
-                          <span className="font-sans text-[14px]" style={{ color: "var(--color-cream)" }}>{field.value}</span>
-                        </div>
-                      ))}
-                      <button className="mt-5 w-full h-10 rounded-xl font-sans text-[14px] font-semibold transition-all duration-200"
-                        style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>
-                        Edit Profile
-                      </button>
+                      {editingProfile ? (
+                        <form onSubmit={saveProfile} className="space-y-4">
+                          {[
+                            { id: "customer-name", label: "Full name", key: "fullName", required: true },
+                            { id: "customer-phone", label: "Phone", key: "phone", required: false },
+                            { id: "customer-state", label: "State", key: "state", required: false },
+                          ].map((field) => (
+                            <label key={field.id} htmlFor={field.id} className="block">
+                              <span className="mb-1.5 block font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.5)" }}>{field.label}</span>
+                              <input
+                                id={field.id}
+                                required={field.required}
+                                value={profileDraft[field.key as keyof typeof profileDraft]}
+                                onChange={(event) => setProfileDraft((draft) => ({ ...draft, [field.key]: event.target.value }))}
+                                className="h-11 w-full rounded-xl px-3 font-sans text-[14px] outline-none focus:ring-1"
+                                style={{ backgroundColor: "#0D0D0B", border: "1px solid #2A2A25", color: "var(--color-cream)" }}
+                              />
+                            </label>
+                          ))}
+                          <label className="block">
+                            <span className="mb-1.5 block font-sans text-[12px]" style={{ color: "rgba(242,237,223,0.5)" }}>Email</span>
+                            <input disabled value={profile?.email ?? ""} className="h-11 w-full cursor-not-allowed rounded-xl px-3 font-sans text-[14px] opacity-60" style={{ backgroundColor: "#0D0D0B", border: "1px solid #2A2A25", color: "var(--color-cream)" }} />
+                          </label>
+                          {profileMessage && <p role="alert" className="font-sans text-[12px]" style={{ color: "#E84545" }}>{profileMessage}</p>}
+                          <div className="flex gap-3 pt-1">
+                            <button type="button" disabled={profileSaving} onClick={() => { setEditingProfile(false); setProfileMessage(""); }} className="h-10 flex-1 rounded-xl font-sans text-[14px] font-semibold" style={{ border: "1px solid #2A2A25", color: "var(--color-cream)" }}>Cancel</button>
+                            <button type="submit" disabled={profileSaving} className="h-10 flex-1 rounded-xl font-sans text-[14px] font-semibold disabled:opacity-60" style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>{profileSaving ? "Saving…" : "Save changes"}</button>
+                          </div>
+                        </form>
+                      ) : (
+                        <>
+                          {[
+                            { label: "Full name", value: profile?.fullName ?? "—" },
+                            { label: "Email", value: profile?.email ?? "—" },
+                            { label: "Phone", value: profile?.phone ?? "Not set" },
+                            { label: "Location", value: profile?.state ?? "Not set" },
+                          ].map(field => (
+                            <div key={field.label} className="flex items-center justify-between py-3 border-b" style={{ borderColor: "#1E1E1A" }}>
+                              <span className="font-sans text-[13px]" style={{ color: "rgba(242,237,223,0.4)" }}>{field.label}</span>
+                              <span className="font-sans text-[14px]" style={{ color: "var(--color-cream)" }}>{field.value}</span>
+                            </div>
+                          ))}
+                          {profileMessage && <p role="status" className="mt-4 font-sans text-[12px]" style={{ color: "#2ECC6A" }}>{profileMessage}</p>}
+                          <button type="button" onClick={startProfileEdit} disabled={demoMode} className="mt-5 w-full h-10 rounded-xl font-sans text-[14px] font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+                            style={{ background: "linear-gradient(135deg, #C8861A, #E8A040)", color: "#0D0D0B" }}>
+                            {demoMode ? "Editing disabled in preview" : "Edit Profile"}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </motion.div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import CategoryGroupSelect from "@/components/CategoryGroupSelect";
 
@@ -109,17 +110,21 @@ export default function ServiceSearch() {
               />
             </div>
 
-            <button
+            <Link
+              href="/artisans"
               className="w-full h-14 rounded-xl font-sans text-[16px] font-semibold transition-all duration-200"
               style={{
                 backgroundColor: "var(--color-ochre)",
                 color: "#0D0D0B",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--color-ochre-light)")}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--color-ochre)")}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.backgroundColor = "var(--color-ochre-light)")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.backgroundColor = "var(--color-ochre)")}
             >
               Find Artisans →
-            </button>
+            </Link>
           </motion.div>
         </div>
       </div>
